@@ -8,10 +8,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#f3f2ec;--card:#fff;--soft:#faf9f5;--ink:#20233a;--muted:#6b7189;--line:#1f233826;--gold:#C98A00;--teal:#0C8FB8;--violet:#5B45E0;--yellow:#FCE9A6;--yellow2:#FBF3CE;}
+  :root{--bg:#f3f2ec;--card:#fff;--soft:#faf9f5;--ink:#20233a;--muted:#6b7189;--line:#1f233826;--gold:#C98A00;--teal:#0C8FB8;--violet:#5B45E0;--yellow:#FCE9A6;--yellow2:#FBF3CE;--green:#1E9E52;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif}
-  .app{max-width:960px;margin:0 auto;padding:0 12px 100px}
+  .app{max-width:980px;margin:0 auto;padding:0 12px 110px}
   .top{position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);background:#f3f2ecdd;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 4px;margin-bottom:10px}
   .brand{font-family:"Black Han Sans";font-size:18px;background:linear-gradient(92deg,var(--gold),#DB2777 55%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
   .btn{border:0;cursor:pointer;font-weight:800;font-size:14px;padding:10px 14px;border-radius:11px;color:#3a2c00;background:linear-gradient(92deg,#FFD23F,#FFB020)}
@@ -23,8 +23,10 @@
   .tab{flex:none;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:15px;padding:10px 16px;border-radius:12px 12px 0 0;cursor:pointer;white-space:nowrap}
   .tab.on{background:var(--yellow);color:#5a4a00;border-color:#d9c98b;border-bottom-color:var(--yellow)}
   .tab.add{background:var(--soft);color:var(--teal)}
-  .banner{font-size:16px;border-radius:12px;padding:13px 14px;margin-bottom:10px;font-weight:800;text-align:center}
+  .banner{font-size:16px;border-radius:12px;padding:13px 14px;margin-bottom:8px;font-weight:800;text-align:center}
   .banner.cur{color:#fff}.banner.wait{background:var(--soft);color:var(--muted);border:1px solid var(--line);font-weight:600}
+  .banner.done{background:#eafbf0;color:#137a3f;border:1px solid #1E9E5233}
+  .prog{font-size:12px;color:var(--muted);text-align:center;margin-bottom:10px;font-weight:700}
   .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid #cbb96a}
   table.board{border-collapse:collapse;width:100%;background:#fff}
   table.board td{border:1px solid #d9c98b;padding:10px 8px;text-align:center;font-size:15px;font-weight:600}
@@ -32,18 +34,18 @@
   table.board td.head{background:var(--yellow2);font-weight:800}
   table.board td.grp{background:#fffdf3;font-weight:800;font-size:16px}
   table.board td.lbl{background:#fffdf3;font-weight:700}
-  table.board td.ans{min-width:96px;height:48px;color:#333}
+  table.board td.ans{min-width:100px;height:50px;color:#333}
   table.board td.ans.pick{cursor:pointer;background:#f4f6ff}
-  table.board td.ans.pick:active{background:#e3e8ff}
+  table.board td.ans.pick:active{background:#dfe6ff}
   table.board td.ans .nm{font-weight:800;font-size:14px}
-  .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
   .players{display:flex;flex-wrap:wrap;gap:8px}
-  .pchip{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:800;background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:7px 12px}
+  .pchip{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:8px 13px}
   .pchip.click{cursor:pointer}.pchip.cur{border-color:var(--violet);box-shadow:0 0 0 2px #5b45e022;background:#f3f0ff}
-  .pchip .dot{width:11px;height:11px;border-radius:50%}.pchip .x{color:var(--muted);font-weight:900;margin-left:2px;cursor:pointer}
+  .pchip .dot{width:12px;height:12px;border-radius:50%}.pchip .x{color:var(--muted);font-weight:900;margin-left:2px;cursor:pointer}
+  .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .ti{width:100%;background:var(--soft);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-weight:600}
   textarea.ti{min-height:150px;font-family:inherit;line-height:1.6}
-  .num{width:64px;text-align:center}
+  .num{width:60px;text-align:center}
   .lblmini{font-size:12px;color:var(--muted);font-weight:700;margin:10px 0 4px}
   .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   details{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px}
@@ -61,62 +63,61 @@
 <div class="app">
   <div class="top"><div class="brand">결과 예측판</div><div id="topRight"></div></div>
 
-  <!-- VIEWER (참가자: 표만 보기) -->
+  <!-- 참가자 (직접 선택) -->
   <div id="viewer">
     <div class="tabs" id="tabsV"></div>
-    <div id="bannerV"></div>
+    <div id="bannerV"></div><div class="prog" id="progV"></div>
     <div class="tablewrap"><table class="board" id="boardV"></table></div>
-    <div class="card" style="margin-top:12px"><h2 class="sec">참가자</h2><div class="players" id="playersV"></div></div>
+    <div class="card" style="margin-top:12px"><h2 class="sec">참가자 순번</h2><div class="players" id="playersV"></div>
+      <p class="note">자기 차례에 위 표의 빈칸을 누르면 이름이 채워지고 다음 사람 차례로 넘어갑니다. 위쪽 탭으로 다른 판도 채울 수 있어요.</p></div>
     <div class="foot"><button class="link" onclick="goAdmin()">진행자 화면</button></div>
   </div>
 
-  <!-- ADMIN (진행자) -->
+  <!-- 관리자 -->
   <div id="admin" class="hidden">
-    <div id="pinGate">
-      <div class="card" style="max-width:360px;margin:20px auto"><h2 class="sec">진행자 확인</h2>
-        <input class="pininput" id="pinInput" inputmode="numeric" placeholder="••••">
-        <button class="btn block" onclick="checkPin()">확인</button>
-        <button class="btn ghost block" style="margin-top:8px" onclick="exitAdmin()">뒤로</button>
-        <p class="note" id="pinErr" style="color:#b13636"></p>
-      </div>
-    </div>
+    <div id="pinGate"><div class="card" style="max-width:360px;margin:20px auto"><h2 class="sec">진행자 확인</h2>
+      <input class="pininput" id="pinInput" inputmode="numeric" placeholder="••••">
+      <button class="btn block" onclick="checkPin()">확인</button>
+      <button class="btn ghost block" style="margin-top:8px" onclick="exitAdmin()">뒤로</button>
+      <p class="note" id="pinErr" style="color:#b13636"></p></div></div>
     <div id="adminMain" class="hidden">
       <div class="tabs" id="tabsA"></div>
-      <div id="bannerA"></div>
+      <div id="bannerA"></div><div class="prog" id="progA"></div>
       <div class="tablewrap"><table class="board" id="boardA"></table></div>
-      <p class="note">빈칸을 누르면 <b>현재 차례</b> 참가자 이름으로 채워집니다. 채워진 칸을 누르면 지웁니다. (참가자 화면에는 표만 보입니다)</p>
+      <p class="note">진행자도 빈칸을 눌러 대신 채울 수 있고, 채워진 칸을 누르면 지웁니다.</p>
 
-      <div class="card" style="margin-top:12px"><div class="ctrl">
+      <div class="card" style="margin-top:12px"><h2 class="sec">진행 제어</h2><div class="ctrl">
         <button class="btn teal small" id="startBtn" onclick="turnAct('start')">시작</button>
         <button class="btn small" onclick="undo()">◀ 되돌리기</button>
         <button class="btn small" onclick="turnAct('pass')">다음 차례 ▶</button>
-        <span class="note" style="margin:0">연속</span><input class="ti num" id="ppt" type="number" min="1" value="1" onchange="setPPT()"><span class="note" style="margin:0">칸씩</span>
-        <button class="btn ghost small" onclick="clearBoard()" style="margin-left:auto">이 판 비우기</button>
+        <span class="note" style="margin:0">한 번에</span><input class="ti num" id="ppt" type="number" min="1" value="1" onchange="setPPT()"><span class="note" style="margin:0">칸씩 선택</span>
       </div></div>
 
-      <div class="card"><h2 class="sec">참가자 <span class="note" style="font-weight:500">· 칩을 눌러 현재 차례 지정 / ✕ 삭제</span></h2>
+      <div class="card"><h2 class="sec">참가자 <span class="note" style="font-weight:500">· 순서대로 진행 · 칩을 눌러 현재 차례 지정 / ✕ 삭제</span></h2>
         <div class="players" id="playersA"></div>
-        <div class="row2" style="margin-top:10px"><input class="ti" id="addP" maxlength="16" placeholder="참가자 이름 추가"><button class="btn ghost small" onclick="addPlayer()">추가</button></div>
-      </div>
+        <div class="row2" style="margin-top:10px"><input class="ti" id="addP" maxlength="16" placeholder="참가자 이름 추가"><button class="btn ghost small" onclick="addPlayer()">추가</button></div></div>
 
-      <details id="editWrap"><summary>⚙ 이 판 표 문구 편집 · 이름/삭제</summary><div class="dbody">
+      <details id="editWrap"><summary>⚙ 이 판 표 편집 (문구·칸 수) · 이름/삭제</summary><div class="dbody">
         <div class="row2"><input class="ti" id="bname" placeholder="게임판 이름"><button class="btn ghost small" onclick="renameBoard()">이름 저장</button><button class="btn danger small" onclick="deleteBoard()">이 판 삭제</button></div>
         <div class="lblmini">제목 (한 줄에 하나)</div><textarea class="ti" id="cfgTitle" style="min-height:70px"></textarea>
         <div class="lblmini">왼쪽 구분 열 제목</div><input class="ti" id="cfgHead">
-        <div class="lblmini">예측(정답) 열 — 쉼표로 구분</div><input class="ti" id="cfgCols">
-        <div class="lblmini">행 목록 — 한 줄에 "그룹 | 세부항목" (그룹 없으면 세부항목만)</div><textarea class="ti" id="cfgRows"></textarea>
+        <div class="lblmini">예측(빈칸) 열 — 쉼표로 구분 (개수가 곧 칸 수)</div><input class="ti" id="cfgCols">
+        <div class="lblmini">행 목록 — 한 줄에 "그룹 | 세부항목" (그룹 없으면 세부항목만). 줄 수가 곧 행 수</div><textarea class="ti" id="cfgRows"></textarea>
         <button class="btn small" style="margin-top:10px" onclick="saveConfig()">표 저장</button><span class="note" id="cfgMsg"></span>
+        <button class="btn ghost small" style="margin-top:10px" onclick="clearBoard()">이 판 채운 칸 비우기</button>
       </div></details>
 
-      <details><summary>📱 참가자 접속 QR · 비밀번호 · 초기화</summary><div class="dbody">
+      <div class="foot" style="margin:6px 0 12px"><button class="btn small" onclick="addBoard()">＋ 게임판 추가</button></div>
+
+      <details><summary>📱 참가자 QR · 비밀번호 · 초기화</summary><div class="dbody">
         <div class="qr" id="qr"></div><div class="linkline" id="linkline"></div>
-        <p class="note">이 링크를 참가자에게 주면 표만 보이는 화면이 열립니다.</p>
+        <p class="note">이 링크를 참가자에게 주면 직접 채우는 화면이 열립니다.</p>
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
         <input class="pininput" id="newPin" inputmode="numeric" placeholder="새 비밀번호(4자리+)"><button class="btn ghost small" onclick="changePin()">비밀번호 변경</button><span class="note" id="pinMsg"></span>
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
         <button class="btn danger small" onclick="resetAll()">전체 초기화 (모든 판 비우기)</button>
       </div></details>
-      <div class="foot"><button class="link" onclick="exitAdmin()">관전 화면으로</button></div>
+      <div class="foot"><button class="link" onclick="exitAdmin()">참가자 화면으로</button></div>
     </div>
   </div>
 </div>
@@ -126,26 +127,28 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
 async function api(p,b){const o={headers:{'Content-Type':'application/json'}};if(b){o.method='POST';o.body=JSON.stringify(b);}return (await fetch(p,o)).json();}
 const tint=c=>c+'26';
-let ST={boards:[],players:[],claims:{},palette:[]};
+let ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},palette:[]};
 let role=localStorage.getItem('board_role')||'viewer';
 let sel=localStorage.getItem('board_sel')||'';
 let editOpen=false,cfgDirty=false;
 function pin(){return localStorage.getItem('board_pin')||'';}
 async function apiA(p,b){return api(p,Object.assign({pin:pin()},b||{}));}
-
 function boardById(){return ST.boards.find(b=>b.id===sel)||ST.boards[0];}
-function curPlayer(b){return ST.players.length?ST.players[b.turn.curIdx%ST.players.length]:null;}
+function curPlayer(){return ST.players.length?ST.players[ST.turn.curIdx%ST.players.length]:null;}
 function groupRuns(rows){const info=rows.map(()=>({start:false,span:1,grouped:false}));for(let i=0;i<rows.length;i++){const g=rows[i].group||'';if(!g)continue;info[i].grouped=true;if(i>0&&(rows[i-1].group||'')===g)info[i].start=false;else{info[i].start=true;let j=i,s=0;while(j<rows.length&&(rows[j].group||'')===g){s++;j++;}info[i].span=s;}}return info;}
+function progress(){let tot=0,done=0;ST.boards.forEach(b=>{tot+=b.config.rows.length*b.config.answerCols.length;done+=Object.keys(ST.claims[b.id]||{}).length;});return{tot,done};}
 
 function renderTabs(elId){const t=$(elId);if(!t)return;t.innerHTML='';
-  ST.boards.forEach(b=>{const d=document.createElement('button');d.className='tab'+(b.id===sel?' on':'');d.textContent=b.name;d.onclick=()=>{sel=b.id;localStorage.setItem('board_sel',sel);render();};t.appendChild(d);});
-  if(role==='admin'){const a=document.createElement('button');a.className='tab add';a.textContent='＋ 판 추가';a.onclick=addBoard;t.appendChild(a);}}
-function bannerHTML(b){if(!b)return '';if(!b.turn.started)return '<div class="banner wait">'+(role==='admin'?'"시작"을 누르면 예측이 시작됩니다.':'곧 시작합니다…')+'</div>';
-  const c=curPlayer(b);if(!c)return '<div class="banner wait">참가자 대기 중…</div>';
-  return '<div class="banner cur" style="background:'+c.color+'">지금 차례: '+esc(c.name)+' &nbsp;·&nbsp; 남은 선택 '+b.turn.remaining+'칸</div>';}
-function renderBoardInto(elId,interactive){const b=boardById();const t=$(elId);if(!t)return;if(!b){t.innerHTML='';return;}
+  ST.boards.forEach(b=>{const d=document.createElement('button');d.className='tab'+(b.id===sel?' on':'');d.textContent=b.name;d.onclick=()=>{sel=b.id;localStorage.setItem('board_sel',sel);render();};t.appendChild(d);});}
+function bannerHTML(){const p=progress();
+  if(!ST.turn.started)return '<div class="banner wait">'+(role==='admin'?'"시작"을 누르면 참가자들이 채우기 시작합니다.':'곧 시작합니다…')+'</div>';
+  if(p.tot>0&&p.done>=p.tot)return '<div class="banner done">🎉 모든 칸이 채워졌습니다 — 결과를 확인하세요!</div>';
+  const c=curPlayer();if(!c)return '<div class="banner wait">참가자 대기 중…</div>';
+  return '<div class="banner cur" style="background:'+c.color+'">지금 차례: '+esc(c.name)+' &nbsp;·&nbsp; 남은 선택 '+ST.turn.remaining+'칸</div>';}
+function progHTML(){const p=progress();return '전체 진행 '+p.done+' / '+p.tot+'칸';}
+function renderBoardInto(elId){const b=boardById();const t=$(elId);if(!t)return;if(!b){t.innerHTML='';return;}
   const c=b.config,AC=c.answerCols.length,total=2+AC,claims=ST.claims[b.id]||{};
-  const canPick=interactive&&b.turn.started&&ST.players.length>0;
+  const canPick=ST.turn.started&&ST.players.length>0;
   let h='';(c.title||[]).forEach(l=>h+='<tr><td class="title" colspan="'+total+'">'+esc(l)+'</td></tr>');
   h+='<tr><td class="head" colspan="2">'+esc(c.labelHeader||'')+'</td>'+c.answerCols.map(a=>'<td class="head">'+esc(a)+'</td>').join('')+'</tr>';
   const info=groupRuns(c.rows);
@@ -156,45 +159,45 @@ function renderBoardInto(elId,interactive){const b=boardById();const t=$(elId);i
       if(owner){const p=ST.players.find(x=>x.id===owner),col=p?p.color:'#888';h+='<td class="ans" data-c="'+cell+'" style="background:'+tint(col)+';border-left:4px solid '+col+'"><span class="nm" style="color:'+col+'">'+(p?esc(p.name):'?')+'</span></td>';}
       else h+='<td class="ans'+(canPick?' pick':'')+'" data-c="'+cell+'"></td>';}
     h+='</tr>';});
-  t.innerHTML=h;
-  if(interactive)t.querySelectorAll('td.ans').forEach(td=>td.onclick=()=>onCell(td.dataset.c));
-}
-function renderPlayers(elId,clickable){const b=boardById();const w=$(elId);if(!w)return;
-  w.innerHTML=ST.players.map((p,i)=>'<span class="pchip'+(clickable?' click':'')+(b&&i===b.turn.curIdx&&b.turn.started?' cur':'')+'"'+(clickable?' onclick="setCur('+i+')"':'')+'><span class="dot" style="background:'+p.color+'"></span>'+esc(p.name)+(clickable?'<span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span>':'')+'</span>').join('')||'<span class="note">참가자가 없습니다.'+(role==='admin'?' 아래에서 추가하세요.':'')+'</span>';}
+  t.innerHTML=h;t.querySelectorAll('td.ans').forEach(td=>td.onclick=()=>onCell(td.dataset.c));}
+function renderPlayers(elId,clickable){const w=$(elId);if(!w)return;
+  w.innerHTML=ST.players.map((p,i)=>'<span class="pchip'+(clickable?' click':'')+(i===ST.turn.curIdx&&ST.turn.started?' cur':'')+'"'+(clickable?' onclick="setCur('+i+')"':'')+'><span class="dot" style="background:'+p.color+'"></span>'+(i+1)+'. '+esc(p.name)+(clickable?'<span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span>':'')+'</span>').join('')||'<span class="note">참가자가 없습니다.'+(role==='admin'?' 아래에서 추가하세요.':' 진행자가 곧 등록합니다.')+'</span>';}
 
-// ---------- role/view ----------
+async function onCell(cell){const b=boardById();const claims=ST.claims[b.id]||{};
+  if(claims[cell]){ if(role==='admin'&&confirm('이 칸을 지울까요?')){await apiA('/api/unclaim',{boardId:b.id,cell});poll();} return; }
+  if(!ST.turn.started){alert('아직 시작 전입니다.');return;}
+  if(!ST.players.length){alert('참가자가 없습니다.');return;}
+  const r=await api('/api/claim',{boardId:b.id,cell});
+  if(r&&r.error==='taken'){/* someone took it */}
+  poll();}
+
 function render(){
   if(sel && !ST.boards.find(b=>b.id===sel)) sel=ST.boards[0]?ST.boards[0].id:'';
   $('viewer').classList.toggle('hidden',role!=='viewer');
   $('admin').classList.toggle('hidden',role!=='admin');
-  $('topRight').innerHTML= role==='admin'?'<button class="btn ghost small" onclick="exitAdmin()">관전 화면</button>':'';
-  if(role==='viewer'){ renderTabs('tabsV'); $('bannerV').innerHTML=bannerHTML(boardById()); renderBoardInto('boardV',false); renderPlayers('playersV',false); }
-  else { enterAdmin(); }
+  $('topRight').innerHTML= role==='admin'?'<button class="btn ghost small" onclick="exitAdmin()">참가자 화면</button>':'<button class="btn ghost small" onclick="goAdmin()">진행자</button>';
+  if(role==='viewer'){renderTabs('tabsV');$('bannerV').innerHTML=bannerHTML();$('progV').textContent=progHTML();renderBoardInto('boardV');renderPlayers('playersV',false);}
+  else enterAdmin();
 }
 function goAdmin(){role='admin';localStorage.setItem('board_role','admin');render();}
 function exitAdmin(){role='viewer';localStorage.setItem('board_role','viewer');render();}
 function checkPin(){const v=$('pinInput').value.trim();api('/api/admin/check',{pin:v}).then(r=>{if(r.ok){localStorage.setItem('board_pin',v);$('pinErr').textContent='';enterAdmin();}else $('pinErr').textContent='PIN 오류';});}
 function enterAdmin(){const ok=!!pin();$('pinGate').classList.toggle('hidden',ok);$('adminMain').classList.toggle('hidden',!ok);if(ok)renderAdmin();}
-function renderAdmin(){renderTabs('tabsA');$('bannerA').innerHTML=bannerHTML(boardById());renderBoardInto('boardA',true);renderPlayers('playersA',true);
-  const b=boardById();if(b){$('startBtn').textContent=b.turn.started?'다시 시작':'시작';$('ppt').value=b.turn.picksPerTurn||1;}
+function renderAdmin(){renderTabs('tabsA');$('bannerA').innerHTML=bannerHTML();$('progA').textContent=progHTML();renderBoardInto('boardA');renderPlayers('playersA',true);
+  $('startBtn').textContent=ST.turn.started?'다시 시작':'시작';$('ppt').value=ST.turn.picksPerTurn||1;
   if(editOpen&&!cfgDirty)loadEditors();renderQR();}
 
-// ---------- admin actions (all with pin) ----------
-async function onCell(cell){const b=boardById();const claims=ST.claims[b.id]||{};
-  if(claims[cell]){if(confirm('이 칸을 지울까요?')){await apiA('/api/unclaim',{boardId:b.id,cell});poll();}return;}
-  if(!b.turn.started){alert('먼저 "시작"을 눌러 주세요.');return;}
-  if(!ST.players.length){alert('참가자를 추가하세요.');return;}
-  await apiA('/api/claim',{boardId:b.id,cell});poll();}
+// admin actions (pin)
+async function turnAct(a){await apiA('/api/turn',{action:a});poll();}
+async function setPPT(){await apiA('/api/turn',{patch:{picksPerTurn:+$('ppt').value||1}});poll();}
+async function setCur(i){await apiA('/api/turn',{patch:{curIdx:i}});poll();}
+async function undo(){await apiA('/api/undo',{});poll();}
+async function addPlayer(){const v=$('addP').value.trim();if(!v)return;const pl=ST.players.slice();pl.push({name:v.slice(0,16)});$('addP').value='';await apiA('/api/players',{players:pl});poll();}
+async function removePlayer(i){const pl=ST.players.slice();pl.splice(i,1);await apiA('/api/players',{players:pl});poll();}
 async function addBoard(){const n=prompt('새 게임판 이름','경기 '+(ST.boards.length+1));if(n===null)return;const r=await apiA('/api/board',{action:'add',name:n||('경기 '+(ST.boards.length+1))});if(r&&r.id){sel=r.id;localStorage.setItem('board_sel',sel);}cfgDirty=false;poll();}
 async function renameBoard(){const b=boardById();await apiA('/api/board',{action:'rename',boardId:b.id,name:$('bname').value.trim()||b.name});poll();}
 async function deleteBoard(){const b=boardById();if(ST.boards.length<=1){alert('마지막 판은 삭제할 수 없습니다.');return;}if(!confirm('"'+b.name+'" 삭제?'))return;await apiA('/api/board',{action:'delete',boardId:b.id});sel='';cfgDirty=false;poll();}
-async function turnAct(a){const b=boardById();await apiA('/api/turn',{boardId:b.id,action:a});poll();}
-async function setPPT(){const b=boardById();await apiA('/api/turn',{boardId:b.id,patch:{picksPerTurn:+$('ppt').value||1}});poll();}
-async function setCur(i){const b=boardById();await apiA('/api/turn',{boardId:b.id,patch:{curIdx:i}});poll();}
-async function undo(){const b=boardById();await apiA('/api/undo',{boardId:b.id});poll();}
 async function clearBoard(){const b=boardById();if(!confirm('이 판의 채운 칸을 모두 지울까요?'))return;await apiA('/api/board',{action:'clear',boardId:b.id});poll();}
-async function addPlayer(){const v=$('addP').value.trim();if(!v)return;const pl=ST.players.slice();pl.push({name:v.slice(0,16)});$('addP').value='';await apiA('/api/players',{players:pl});poll();}
-async function removePlayer(i){const pl=ST.players.slice();pl.splice(i,1);await apiA('/api/players',{players:pl});poll();}
 async function saveConfig(){const b=boardById();
   const title=$('cfgTitle').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const labelHeader=$('cfgHead').value.trim();
@@ -205,11 +208,10 @@ async function saveConfig(){const b=boardById();
   $('cfgMsg').textContent=r.ok?'저장됨 ✓':(r.error==='pin'?'PIN 오류':'실패');cfgDirty=false;if(r.ok)poll();}
 async function resetAll(){if(!confirm('모든 판의 채운 칸을 초기화할까요?'))return;await apiA('/api/reset',{});poll();}
 function changePin(){const np=$('newPin').value.trim();if(np.length<4){$('pinMsg').textContent='4자리 이상';return;}apiA('/api/admin/pin',{newPin:np}).then(r=>{if(r.ok){localStorage.setItem('board_pin',np);$('pinMsg').textContent='변경됨 ✓';$('newPin').value='';}else $('pinMsg').textContent='실패';});}
-Object.assign(window,{goAdmin,exitAdmin,checkPin,onCell,addBoard,renameBoard,deleteBoard,turnAct,setPPT,setCur,undo,clearBoard,addPlayer,removePlayer,saveConfig,resetAll,changePin});
+Object.assign(window,{goAdmin,exitAdmin,checkPin,onCell,turnAct,setPPT,setCur,undo,addPlayer,removePlayer,addBoard,renameBoard,deleteBoard,clearBoard,saveConfig,resetAll,changePin});
 
 function loadEditors(){const b=boardById();if(!b)return;$('bname').value=b.name;const c=b.config;$('cfgTitle').value=(c.title||[]).join('\n');$('cfgHead').value=c.labelHeader||'';$('cfgCols').value=(c.answerCols||[]).join(', ');$('cfgRows').value=(c.rows||[]).map(r=>(r.group?r.group+' | ':'| ')+r.label).join('\n');}
 var _ew=$('editWrap'); if(_ew)_ew.addEventListener('toggle',function(){editOpen=_ew.open;if(editOpen)loadEditors();});
-['cfgTitle','cfgHead','cfgCols','cfgRows','bname'].forEach(function(){});
 document.addEventListener('input',function(ev){if(['cfgTitle','cfgHead','cfgCols','cfgRows','bname'].indexOf(ev.target.id)>=0)cfgDirty=true;});
 function renderQR(){const url=location.origin;var L=$('linkline');if(L)L.textContent=url;const box=$('qr');if(box&&!box.dataset.done){try{if(window.QRCode){new QRCode(box,{text:url,width:130,height:130,correctLevel:QRCode.CorrectLevel.M});box.dataset.done='1';}}catch(e){}}}
 
