@@ -8,6 +8,7 @@ const app = express();
 app.use(express.json({ limit: '512kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
 const PALETTE = ['#E11D48','#2563EB','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#4F46E5','#0D9488','#9333EA'];
 const NEW_TURN = () => ({ curIdx: 0, remaining: 1, picksPerTurn: 1, started: false });
 const DEMO_CONFIG = {
@@ -30,6 +31,8 @@ const getBoards=()=>J('board:boards',[]);
 const setBoards=b=>setS('board:boards',JSON.stringify(b));
 const getPlayers=()=>J('board:players',[]);
 const setPlayers=p=>setS('board:players',JSON.stringify(p));
+async function getPin(){ return (await getS('board:admin_pin')) || ADMIN_PIN; }
+async function auth(req){ return !!(req.body) && req.body.pin===await getPin(); }
 
 async function init(){
   await db.execute(`CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT)`);
@@ -56,6 +59,7 @@ app.get('/api/state', async (req,res)=>{
 
 app.post('/api/claim', async (req,res)=>{
   try{
+    if(!await auth(req))return res.status(403).json({error:'pin'});
     const { boardId, cell } = req.body||{};
     const boards=await getBoards(), players=await getPlayers();
     const b=boards.find(x=>x.id===boardId); if(!b) return res.status(404).json({error:'no_board'});
@@ -72,6 +76,7 @@ app.post('/api/claim', async (req,res)=>{
 
 app.post('/api/undo', async (req,res)=>{
   try{
+    if(!await auth(req))return res.status(403).json({error:'pin'});
     const { boardId } = req.body||{};
     const boards=await getBoards(), players=await getPlayers();
     const b=boards.find(x=>x.id===boardId); if(!b) return res.status(404).json({error:'no_board'});
@@ -86,12 +91,13 @@ app.post('/api/undo', async (req,res)=>{
 });
 
 app.post('/api/unclaim', async (req,res)=>{
-  try{ const {boardId,cell}=req.body||{}; await db.execute({sql:`DELETE FROM board_claims WHERE board_id=? AND cell=?`,args:[boardId,cell]}); res.json({ok:true}); }
+  try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const {boardId,cell}=req.body||{}; await db.execute({sql:`DELETE FROM board_claims WHERE board_id=? AND cell=?`,args:[boardId,cell]}); res.json({ok:true}); }
   catch(e){ res.status(500).json({error:String(e)}); }
 });
 
 app.post('/api/turn', async (req,res)=>{
   try{
+    if(!await auth(req))return res.status(403).json({error:'pin'});
     const { boardId, action, patch } = req.body||{};
     const boards=await getBoards(), players=await getPlayers();
     const b=boards.find(x=>x.id===boardId); if(!b) return res.status(404).json({error:'no_board'});
@@ -104,10 +110,9 @@ app.post('/api/turn', async (req,res)=>{
   }catch(e){ res.status(500).json({error:String(e)}); }
 });
 
-app.post('/api/active', async (req,res)=>{ try{ await setS('board:active',String(req.body?.boardId||'')); res.json({ok:true}); }catch(e){ res.status(500).json({error:String(e)}); } });
 
 app.post('/api/players', async (req,res)=>{
-  try{ const p=req.body?.players; if(!Array.isArray(p)) return res.status(400).json({error:'bad'});
+  try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const p=req.body?.players; if(!Array.isArray(p)) return res.status(400).json({error:'bad'});
     // ensure colors
     const used=new Set();
     p.forEach((pl,i)=>{ if(!pl.id)pl.id='p-'+Date.now()+'-'+i; if(!pl.color){pl.color=PALETTE.find(c=>!used.has(c))||PALETTE[i%PALETTE.length];} used.add(pl.color); pl.name=String(pl.name||('P'+(i+1))).slice(0,16); });
@@ -117,6 +122,7 @@ app.post('/api/players', async (req,res)=>{
 
 app.post('/api/board', async (req,res)=>{
   try{
+    if(!await auth(req))return res.status(403).json({error:'pin'});
     const { action, boardId, name, config } = req.body||{};
     const boards=await getBoards();
     if(action==='add'){ const id='b'+Date.now(); boards.push({id,name:String(name||('경기 '+(boards.length+1))).slice(0,24),config:BLANK_CONFIG(),turn:NEW_TURN()}); await setBoards(boards); await setS('board:active',id); return res.json({ok:true,id}); }
@@ -130,11 +136,18 @@ app.post('/api/board', async (req,res)=>{
 });
 
 app.post('/api/reset', async (req,res)=>{
-  try{ await db.execute(`DELETE FROM board_claims`);
+  try{ if(!await auth(req))return res.status(403).json({error:'pin'}); await db.execute(`DELETE FROM board_claims`);
     const boards=await getBoards(); boards.forEach(b=>b.turn=NEW_TURN()); await setBoards(boards);
     if(req.body?.clearPlayers) await setPlayers([]);
     res.json({ok:true});
   }catch(e){ res.status(500).json({error:String(e)}); }
+});
+
+app.post('/api/admin/check', async (req,res)=>res.json({ok:(req.body?.pin)===await getPin()}));
+app.post('/api/admin/pin', async (req,res)=>{
+  try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const np=String(req.body?.newPin||'').trim();
+    if(np.length<4||np.length>20)return res.status(400).json({error:'length'}); await setS('board:admin_pin',np); res.json({ok:true}); }
+  catch(e){ res.status(500).json({error:String(e)}); }
 });
 
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
