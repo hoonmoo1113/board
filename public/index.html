@@ -23,7 +23,8 @@
   .tab{flex:none;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:15px;padding:10px 16px;border-radius:12px 12px 0 0;cursor:pointer;white-space:nowrap}
   .tab.on{background:var(--yellow);color:#5a4a00;border-color:#d9c98b;border-bottom-color:var(--yellow)}
   .tab.add{background:var(--soft);color:var(--teal)}
-  .banner{font-size:16px;border-radius:12px;padding:13px 14px;margin-bottom:8px;font-weight:800;text-align:center}
+  .banner{font-size:18px;border-radius:12px;padding:14px 14px;margin-bottom:8px;font-weight:800;text-align:center}
+  .stickyturn{position:sticky;top:54px;z-index:15}
   .banner.cur{color:#fff}.banner.wait{background:var(--soft);color:var(--muted);border:1px solid var(--line);font-weight:600}
   .banner.done{background:#eafbf0;color:#137a3f;border:1px solid #1E9E5233}
   .prog{font-size:12px;color:var(--muted);text-align:center;margin-bottom:10px;font-weight:700}
@@ -65,8 +66,8 @@
 
   <!-- 참가자 (직접 선택) -->
   <div id="viewer">
+    <div id="bannerV" class="stickyturn"></div><div class="prog" id="progV"></div>
     <div class="tabs" id="tabsV"></div>
-    <div id="bannerV"></div><div class="prog" id="progV"></div>
     <div class="tablewrap"><table class="board" id="boardV"></table></div>
     <div class="card" style="margin-top:12px"><h2 class="sec">참가자 순번</h2><div class="players" id="playersV"></div>
       <p class="note">자기 차례에 위 표의 빈칸을 누르면 이름이 채워지고 다음 사람 차례로 넘어갑니다. 위쪽 탭으로 다른 판도 채울 수 있어요.</p></div>
@@ -81,8 +82,8 @@
       <button class="btn ghost block" style="margin-top:8px" onclick="exitAdmin()">뒤로</button>
       <p class="note" id="pinErr" style="color:#b13636"></p></div></div>
     <div id="adminMain" class="hidden">
+      <div id="bannerA" class="stickyturn"></div><div class="prog" id="progA"></div>
       <div class="tabs" id="tabsA"></div>
-      <div id="bannerA"></div><div class="prog" id="progA"></div>
       <div class="tablewrap"><table class="board" id="boardA"></table></div>
       <p class="note">진행자도 빈칸을 눌러 대신 채울 수 있고, 채워진 칸을 누르면 지웁니다.</p>
 
@@ -97,7 +98,7 @@
         <div class="players" id="playersA"></div>
         <div class="row2" style="margin-top:10px"><input class="ti" id="addP" maxlength="16" placeholder="참가자 이름 추가"><button class="btn ghost small" onclick="addPlayer()">추가</button></div></div>
 
-      <details id="editWrap"><summary>⚙ 이 판 표 편집 (문구·칸 수) · 이름/삭제</summary><div class="dbody">
+      <details id="editWrap" open><summary>⚙ 이 판 표 편집 (문구·칸 수) · 이름/삭제</summary><div class="dbody">
         <div class="row2"><input class="ti" id="bname" placeholder="게임판 이름"><button class="btn ghost small" onclick="renameBoard()">이름 저장</button><button class="btn danger small" onclick="deleteBoard()">이 판 삭제</button></div>
         <div class="lblmini">제목 (한 줄에 하나)</div><textarea class="ti" id="cfgTitle" style="min-height:70px"></textarea>
         <div class="lblmini">왼쪽 구분 열 제목</div><input class="ti" id="cfgHead">
@@ -130,9 +131,9 @@ const tint=c=>c+'26';
 let ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},palette:[]};
 let role=localStorage.getItem('board_role')||'viewer';
 let sel=localStorage.getItem('board_sel')||'';
-let editOpen=false,cfgDirty=false;
+let editOpen=true,cfgDirty=false;
 function pin(){return localStorage.getItem('board_pin')||'';}
-async function apiA(p,b){return api(p,Object.assign({pin:pin()},b||{}));}
+async function apiA(p,b){const r=await api(p,Object.assign({pin:pin()},b||{}));if(r&&r.error==='pin'){localStorage.removeItem('board_pin');alert('진행자 비밀번호를 다시 입력해 주세요.');render();}return r;}
 function boardById(){return ST.boards.find(b=>b.id===sel)||ST.boards[0];}
 function curPlayer(){return ST.players.length?ST.players[ST.turn.curIdx%ST.players.length]:null;}
 function groupRuns(rows){const info=rows.map(()=>({start:false,span:1,grouped:false}));for(let i=0;i<rows.length;i++){const g=rows[i].group||'';if(!g)continue;info[i].grouped=true;if(i>0&&(rows[i-1].group||'')===g)info[i].start=false;else{info[i].start=true;let j=i,s=0;while(j<rows.length&&(rows[j].group||'')===g){s++;j++;}info[i].span=s;}}return info;}
@@ -215,7 +216,7 @@ var _ew=$('editWrap'); if(_ew)_ew.addEventListener('toggle',function(){editOpen=
 document.addEventListener('input',function(ev){if(['cfgTitle','cfgHead','cfgCols','cfgRows','bname'].indexOf(ev.target.id)>=0)cfgDirty=true;});
 function renderQR(){const url=location.origin;var L=$('linkline');if(L)L.textContent=url;const box=$('qr');if(box&&!box.dataset.done){try{if(window.QRCode){new QRCode(box,{text:url,width:130,height:130,correctLevel:QRCode.CorrectLevel.M});box.dataset.done='1';}}catch(e){}}}
 
-async function poll(){try{const st=await api('/api/state');ST=st;render();}catch(e){}}
+async function poll(){try{const st=await api('/api/state');if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!Array.isArray(st.boards))st.boards=[];if(!Array.isArray(st.players))st.players=[];if(!st.claims)st.claims={};ST=st;render();}catch(e){}}
 (async()=>{await poll();setInterval(poll,1500);})();
 </script>
 </body>
