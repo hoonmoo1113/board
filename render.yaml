@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: gyeongyeon-board
+    name: friends-board
     runtime: node
     plan: free
     buildCommand: npm install

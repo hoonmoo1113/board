@@ -1,7 +1,7 @@
 {
-  "name": "gyeongyeon-board",
+  "name": "friends-board",
   "version": "1.0.0",
-  "description": "드래프트식 결과 예측판 (Express + Turso/libSQL)",
+  "description": "친구들과 함께하는 결과 예측판 (실시간, Express + Turso)",
   "type": "module",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=18" },
