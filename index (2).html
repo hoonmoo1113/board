@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f2ec">
+<title>결과 예측판</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f3f2ec;--card:#fff;--soft:#faf9f5;--ink:#20233a;--muted:#6b7189;--line:#1f233826;--gold:#C98A00;--teal:#0C8FB8;--violet:#5B45E0;--yellow:#FCE9A6;--yellow2:#FBF3CE;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif}
+  .app{max-width:1000px;margin:0 auto;padding:0 12px 110px}
+  .top{position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);background:#f3f2ece6;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 4px}
+  .brand{font-family:"Black Han Sans";font-size:18px;background:linear-gradient(92deg,var(--gold),#DB2777 55%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .btn{border:0;cursor:pointer;font-weight:800;font-size:14px;padding:10px 14px;border-radius:11px;color:#3a2c00;background:linear-gradient(92deg,#FFD23F,#FFB020)}
+  .btn.block{width:100%}.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.small{padding:7px 11px;font-size:13px;border-radius:9px}
+  .btn.teal{background:linear-gradient(92deg,var(--violet),var(--teal));color:#fff}.btn.danger{background:#EF4444;color:#fff}.btn.green{background:#1E9E52;color:#fff}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+  h2.sec{font-size:14px;margin:0 0 10px;font-weight:800}
+  .turnbar{position:sticky;top:52px;z-index:25;font-size:18px;border-radius:0 0 14px 14px;padding:14px;font-weight:800;text-align:center;color:#fff;box-shadow:0 8px 20px -14px #0006}
+  .turnbar.wait{background:#ecebe4;color:var(--muted)}
+  .turnbar.done{background:#1E9E52;color:#fff}
+  .prog{font-size:12px;color:var(--muted);text-align:center;margin:8px 0}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+  .tab{flex:none;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:15px;padding:10px 16px;border-radius:12px 12px 0 0;cursor:pointer;white-space:nowrap}
+  .tab.on{background:var(--yellow);color:#5a4a00;border-color:#d9c98b;border-bottom-color:var(--yellow)}
+  .tab.add{background:var(--soft);color:var(--teal)}
+  .tbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid #cbb96a}
+  table.board{border-collapse:collapse;width:100%;background:#fff}
+  table.board td{border:1px solid #d9c98b;padding:9px 8px;text-align:center;font-size:15px;font-weight:600}
+  table.board td.title{background:var(--yellow);font-family:"Black Han Sans";font-weight:400;font-size:18px;padding:11px}
+  table.board td.head{background:var(--yellow2);font-weight:800}
+  table.board td.grp{background:#fffdf3;font-weight:800;font-size:16px}
+  table.board td.lbl{background:#fffdf3;font-weight:700}
+  table.board td.ans{min-width:100px;height:50px;color:#333}
+  table.board td.ans.pick{cursor:pointer;background:#f4f6ff}
+  table.board td.ans.pick:active{background:#dfe6ff}
+  table.board td.ans .nm{font-weight:800;font-size:14px}
+  table.board td.ph{background:#f6f6f2;color:#b7b7ad;font-size:12px;font-weight:600}
+  table.board.edit td{padding:5px}
+  table.board.edit input{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font-size:14px;font-weight:700;background:#fff;text-align:center}
+  table.board.edit td.title input{font-size:15px}
+  .mini{padding:3px 9px;font-size:13px;font-weight:800;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+  .mini.del{color:#c0392b}.mini.add{color:var(--teal)}
+  .players{display:flex;flex-wrap:wrap;gap:8px}
+  .pchip{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:8px 13px;cursor:pointer}
+  .pchip.cur{border-color:var(--violet);box-shadow:0 0 0 2px #5b45e022;background:#f3f0ff}
+  .pchip .dot{width:12px;height:12px;border-radius:50%}.pchip .x{color:var(--muted);font-weight:900;margin-left:2px}
+  .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .ti{width:100%;background:var(--soft);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 12px;font-size:15px;font-weight:600}
+  .num{width:60px;text-align:center}
+  .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  details{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px}
+  summary{cursor:pointer;font-weight:800;font-size:14px;padding:14px;list-style:none}summary::-webkit-details-marker{display:none} .dbody{padding:14px}
+  .qr{background:#fff;padding:10px;border-radius:12px;width:150px;height:150px;display:flex;align-items:center;justify-content:center;margin:0 auto;border:1px solid var(--line)}
+  .linkline{word-break:break-all;font-size:12px;color:var(--teal);background:var(--soft);padding:8px 10px;border-radius:8px;border:1px solid var(--line);margin-top:10px;text-align:center}
+  .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+  .hint{font-size:13px;color:var(--muted);margin:4px 2px 10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><div class="brand">결과 예측판</div><button class="btn ghost small" id="editToggle" onclick="toggleEdit()">✏️ 표 편집</button></div>
+
+  <div class="turnbar wait" id="turnbar"></div>
+  <div class="prog" id="prog"></div>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="tbar" id="tbar"></div>
+  <div class="tablewrap"><table class="board" id="board"></table></div>
+  <p class="hint" id="tableHint"></p>
+
+  <div class="card"><h2 class="sec">참가자 <span class="note" style="font-weight:500">· 순서대로 진행 · 칩을 눌러 현재 차례 지정</span></h2>
+    <div class="players" id="players"></div>
+    <div class="row2" style="margin-top:10px"><input class="ti" id="addP" maxlength="16" placeholder="참가자 이름 입력"><button class="btn small" onclick="addPlayer()">＋ 추가</button></div>
+  </div>
+
+  <div class="card"><h2 class="sec">진행 제어</h2><div class="ctrl">
+    <button class="btn green small" id="startBtn" onclick="turnAct('start')">▶ 시작</button>
+    <button class="btn ghost small" onclick="undo()">◀ 되돌리기</button>
+    <button class="btn ghost small" onclick="turnAct('pass')">다음 차례 ▶</button>
+    <span class="note" style="margin:0">한 번에</span><input class="ti num" id="ppt" type="number" min="1" value="1" onchange="setPPT()"><span class="note" style="margin:0">칸씩</span>
+    <button class="btn ghost small" onclick="clearBoard()" style="margin-left:auto">이 판 비우기</button>
+  </div></div>
+
+  <details><summary>📱 참가자 접속 QR · 전체 초기화</summary><div class="dbody">
+    <div class="qr" id="qr"></div><div class="linkline" id="linkline"></div>
+    <p class="note">이 링크(또는 QR)를 열면 누구나 같은 화면을 봅니다. 한 화면을 함께 써도 되고, 여러 기기에서 열어도 실시간으로 같이 보입니다.</p>
+    <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
+    <button class="btn danger small" onclick="resetAll()">전체 초기화 (모든 판 비우기)</button>
+  </div></details>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+async function api(p,b){const o={headers:{'Content-Type':'application/json'}};if(b){o.method='POST';o.body=JSON.stringify(b);}try{return await (await fetch(p,o)).json();}catch(e){return {error:'net'};}}
+const tint=c=>c+'26';
+let ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},palette:[]};
+let sel=localStorage.getItem('board_sel')||'';
+let editing=false, draft=null;
+
+function board(){return ST.boards.find(b=>b.id===sel)||ST.boards[0];}
+function curPlayer(){return ST.players.length?ST.players[ST.turn.curIdx%ST.players.length]:null;}
+function groupRuns(rows){const info=rows.map(()=>({start:false,span:1,grouped:false}));for(let i=0;i<rows.length;i++){const g=rows[i].group||'';if(!g)continue;info[i].grouped=true;if(i>0&&(rows[i-1].group||'')===g)info[i].start=false;else{info[i].start=true;let j=i,s=0;while(j<rows.length&&(rows[j].group||'')===g){s++;j++;}info[i].span=s;}}return info;}
+function progress(){let tot=0,done=0;ST.boards.forEach(b=>{tot+=b.config.rows.length*b.config.answerCols.length;done+=Object.keys(ST.claims[b.id]||{}).length;});return{tot,done};}
+
+function renderTabs(){const t=$('tabs');t.innerHTML='';
+  ST.boards.forEach(b=>{const d=document.createElement('button');d.className='tab'+(b.id===sel?' on':'');d.textContent=b.name;d.onclick=()=>{if(editing&&!confirm('편집 중입니다. 저장하지 않고 이동할까요?'))return;editing=false;sel=b.id;localStorage.setItem('board_sel',sel);render();};t.appendChild(d);});
+  const a=document.createElement('button');a.className='tab add';a.textContent='＋ 판 추가';a.onclick=addBoard;t.appendChild(a);}
+function renderTurn(){const p=progress();const tb=$('turnbar');
+  if(!ST.players.length){tb.className='turnbar wait';tb.textContent='먼저 참가자를 추가하세요 ↓';}
+  else if(!ST.turn.started){tb.className='turnbar wait';tb.textContent='▶ 아래 "시작"을 누르면 시작됩니다';}
+  else if(p.tot>0&&p.done>=p.tot){tb.className='turnbar done';tb.textContent='🎉 모두 채워졌습니다 — 결과 완성!';}
+  else{const c=curPlayer();tb.className='turnbar';tb.style.background=c.color;tb.textContent='지금 차례: '+c.name+'  ·  남은 선택 '+ST.turn.remaining+'칸';}
+  $('prog').textContent='전체 진행 '+p.done+' / '+p.tot+'칸';}
+function renderPlayers(){const w=$('players');
+  w.innerHTML=ST.players.map((p,i)=>'<span class="pchip'+(i===ST.turn.curIdx&&ST.turn.started?' cur':'')+'" onclick="setCur('+i+')"><span class="dot" style="background:'+p.color+'"></span>'+(i+1)+'. '+esc(p.name)+'<span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span></span>').join('')||'<span class="note">아직 참가자가 없습니다. 아래 칸에 이름을 넣고 "＋ 추가"를 누르세요.</span>';}
+function renderControls(){$('startBtn').textContent=ST.turn.started?'▶ 다시 시작':'▶ 시작';$('ppt').value=ST.turn.picksPerTurn||1;}
+function renderTbar(){const t=$('tbar');const b=board();
+  if(editing){t.innerHTML='<button class="btn green small" onclick="saveEdit()">💾 저장</button><button class="btn ghost small" onclick="cancelEdit()">취소</button>'+
+    '<span class="note" style="margin:0 6px">이름</span><input class="ti" style="width:150px" id="bname" value="'+(b?esc(b.name).replace(/"/g,"&quot;"):'')+'"><button class="btn ghost small" onclick="renameBoard()">저장</button>'+
+    '<button class="btn danger small" onclick="deleteBoard()" style="margin-left:auto">이 판 삭제</button>';}
+  else t.innerHTML='';}
+
+// ---------- table: play ----------
+function renderPlay(){const b=board();const t=$('board');t.className='board';if(!b){t.innerHTML='';return;}
+  const c=b.config,AC=c.answerCols.length,total=2+AC,claims=ST.claims[b.id]||{};
+  const canPick=ST.turn.started&&ST.players.length>0;
+  let h='';(c.title||[]).forEach(l=>h+='<tr><td class="title" colspan="'+total+'">'+esc(l)+'</td></tr>');
+  h+='<tr><td class="head" colspan="2">'+esc(c.labelHeader||'')+'</td>'+c.answerCols.map(a=>'<td class="head">'+esc(a)+'</td>').join('')+'</tr>';
+  const info=groupRuns(c.rows);
+  c.rows.forEach((row,ri)=>{h+='<tr>';
+    if(info[ri].grouped){if(info[ri].start)h+='<td class="grp" rowspan="'+info[ri].span+'">'+esc(row.group)+'</td>';h+='<td class="lbl">'+esc(row.label)+'</td>';}
+    else h+='<td class="lbl" colspan="2">'+esc(row.label)+'</td>';
+    for(let a=0;a<AC;a++){const cell=ri+'_'+a,owner=claims[cell];
+      if(owner){const p=ST.players.find(x=>x.id===owner),col=p?p.color:'#888';h+='<td class="ans" data-c="'+cell+'" style="background:'+tint(col)+';border-left:4px solid '+col+'"><span class="nm" style="color:'+col+'">'+(p?esc(p.name):'?')+'</span></td>';}
+      else h+='<td class="ans'+(canPick?' pick':'')+'" data-c="'+cell+'"></td>';}
+    h+='</tr>';});
+  t.innerHTML=h;t.querySelectorAll('td.ans').forEach(td=>td.onclick=()=>onCell(td.dataset.c));
+  $('tableHint').textContent=canPick?'자기 차례에 빈칸을 누르면 이름이 채워집니다. 위 탭으로 다른 판도 채울 수 있어요.':'';}
+
+// ---------- table: edit (inline) ----------
+function renderEdit(){const t=$('board');t.className='board edit';const c=draft;const AC=c.answerCols.length,total=2+AC+1;
+  let h='';
+  (c.title||[]).forEach((l,i)=>h+='<tr><td class="title" colspan="'+total+'"><div class="row2" style="justify-content:center"><input value="'+esc(l).replace(/"/g,'&quot;')+'" oninput="setTitle('+i+',this.value)" style="max-width:70%"><button class="mini del" onclick="delTitle('+i+')">− 제목</button></div></td></tr>');
+  h+='<tr><td class="title" colspan="'+total+'"><button class="mini add" onclick="addTitle()">＋ 제목 줄</button></td></tr>';
+  h+='<tr><td class="head" colspan="2"><input value="'+esc(c.labelHeader||'').replace(/"/g,'&quot;')+'" oninput="setHead(this.value)"></td>';
+  c.answerCols.forEach((a,i)=>h+='<td class="head"><input value="'+esc(a).replace(/"/g,'&quot;')+'" oninput="setCol('+i+',this.value)"><div><button class="mini del" onclick="delCol('+i+')">− 열</button></div></td>');
+  h+='<td class="head"><button class="mini add" onclick="addCol()">＋ 열</button></td></tr>';
+  c.rows.forEach((row,ri)=>{h+='<tr>'+
+    '<td style="width:110px"><input placeholder="그룹(없으면 비움)" value="'+esc(row.group||'').replace(/"/g,'&quot;')+'" oninput="setGroup('+ri+',this.value)"></td>'+
+    '<td><input placeholder="항목 이름" value="'+esc(row.label||'').replace(/"/g,'&quot;')+'" oninput="setLabel('+ri+',this.value)"></td>'+
+    Array.from({length:AC}).map(()=>'<td class="ph">빈칸</td>').join('')+
+    '<td><button class="mini del" onclick="delRow('+ri+')">− 행</button></td></tr>';});
+  h+='<tr><td colspan="'+total+'"><button class="mini add" onclick="addRow()">＋ 행 추가</button></td></tr>';
+  t.innerHTML=h;
+  $('tableHint').textContent='칸 안 글자를 바로 고치고, ＋/− 로 행·열을 늘리거나 줄이세요. 다 되면 "💾 저장"을 누르세요. (회색 "빈칸"은 참가자가 채우는 칸)';}
+
+function toggleEdit(){ if(editing){cancelEdit();return;} const b=board(); if(!b)return; draft=JSON.parse(JSON.stringify(b.config)); editing=true; $('editToggle').textContent='✕ 편집 종료'; renderTbar(); renderEdit(); window.scrollTo(0,0);}
+function cancelEdit(){editing=false;draft=null;$('editToggle').textContent='✏️ 표 편집';render();}
+async function saveEdit(){ if(!draft.answerCols.length||!draft.rows.length){alert('열과 행이 각각 1개 이상 있어야 합니다.');return;}
+  draft.title=(draft.title||[]).filter(x=>x!=null); draft.rows=draft.rows.filter(r=>r&&(r.label||r.label==='')); 
+  const r=await api('/api/board',{action:'config',boardId:board().id,config:draft});
+  if(r.ok){editing=false;draft=null;$('editToggle').textContent='✏️ 표 편집';await poll();} else alert('저장 실패: '+(r.error||''));}
+// edit mutators (text = update draft only; structural = re-render)
+function setTitle(i,v){draft.title[i]=v;} function addTitle(){draft.title=draft.title||[];draft.title.push('');renderEdit();} function delTitle(i){draft.title.splice(i,1);renderEdit();}
+function setHead(v){draft.labelHeader=v;}
+function setCol(i,v){draft.answerCols[i]=v;} function addCol(){draft.answerCols.push('선택 '+(draft.answerCols.length+1));renderEdit();} function delCol(i){if(draft.answerCols.length>1){draft.answerCols.splice(i,1);renderEdit();}else alert('열은 최소 1개 필요합니다.');}
+function setGroup(i,v){draft.rows[i].group=v;} function setLabel(i,v){draft.rows[i].label=v;}
+function addRow(){draft.rows.push({group:'',label:''});renderEdit();} function delRow(i){if(draft.rows.length>1){draft.rows.splice(i,1);renderEdit();}else alert('행은 최소 1개 필요합니다.');}
+
+// ---------- actions ----------
+async function onCell(cell){const b=board();const claims=ST.claims[b.id]||{};
+  if(claims[cell]){if(confirm('이 칸을 지울까요?')){await api('/api/unclaim',{boardId:b.id,cell});poll();}return;}
+  if(!ST.players.length){alert('먼저 참가자를 추가하세요.');return;}
+  if(!ST.turn.started){alert('먼저 "시작"을 누르세요.');return;}
+  await api('/api/claim',{boardId:b.id,cell});poll();}
+async function turnAct(a){await api('/api/turn',{action:a});poll();}
+async function setPPT(){await api('/api/turn',{patch:{picksPerTurn:+$('ppt').value||1}});poll();}
+async function setCur(i){await api('/api/turn',{patch:{curIdx:i}});poll();}
+async function undo(){await api('/api/undo',{});poll();}
+async function addPlayer(){const v=$('addP').value.trim();if(!v){$('addP').focus();return;}const pl=ST.players.slice();pl.push({name:v.slice(0,16)});$('addP').value='';const r=await api('/api/players',{players:pl});if(!r.ok)alert('추가 실패: '+(r.error||''));poll();}
+async function removePlayer(i){const pl=ST.players.slice();pl.splice(i,1);await api('/api/players',{players:pl});poll();}
+async function addBoard(){const n=prompt('새 게임판 이름','경기 '+(ST.boards.length+1));if(n===null)return;const r=await api('/api/board',{action:'add',name:n||('경기 '+(ST.boards.length+1))});if(r&&r.id){sel=r.id;localStorage.setItem('board_sel',sel);editing=false;}poll();}
+async function renameBoard(){const b=board();const n=$('bname')?$('bname').value.trim():'';await api('/api/board',{action:'rename',boardId:b.id,name:n||b.name});poll();}
+async function deleteBoard(){const b=board();if(ST.boards.length<=1){alert('마지막 판은 삭제할 수 없습니다.');return;}if(!confirm('"'+b.name+'" 판을 삭제할까요?'))return;await api('/api/board',{action:'delete',boardId:b.id});sel='';editing=false;$('editToggle').textContent='✏️ 표 편집';poll();}
+async function clearBoard(){const b=board();if(!confirm('이 판의 채운 칸을 모두 지울까요?'))return;await api('/api/board',{action:'clear',boardId:b.id});poll();}
+async function resetAll(){if(!confirm('모든 판의 채운 칸을 초기화할까요?'))return;await api('/api/reset',{});poll();}
+Object.assign(window,{toggleEdit,cancelEdit,saveEdit,setTitle,addTitle,delTitle,setHead,setCol,addCol,delCol,setGroup,setLabel,addRow,delRow,onCell,turnAct,setPPT,setCur,undo,addPlayer,removePlayer,addBoard,renameBoard,deleteBoard,clearBoard,resetAll});
+
+function renderQR(){const url=location.origin;var L=$('linkline');if(L)L.textContent=url;const box=$('qr');if(box&&!box.dataset.done){try{if(window.QRCode){new QRCode(box,{text:url,width:130,height:130,correctLevel:QRCode.CorrectLevel.M});box.dataset.done='1';}}catch(e){}}}
+
+function render(){
+  if(sel && !ST.boards.find(b=>b.id===sel)) sel=ST.boards[0]?ST.boards[0].id:'';
+  renderTabs();renderTurn();renderPlayers();renderControls();renderTbar();renderQR();
+  if(!editing) renderPlay(); // 편집 중이면 표는 그대로 둠(입력 유지)
+}
+async function poll(){const st=await api('/api/state');if(st&&st.boards){if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;render();}}
+(async()=>{await poll();setInterval(poll,1500);})();
+</script>
+</body>
+</html>
