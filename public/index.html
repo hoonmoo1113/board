@@ -200,7 +200,7 @@ async function onCellPlayer(cell){if(!meIsCurrent()){alert('아직 당신 차례
 
 // ---------- host: table edit (inline) ----------
 function renderTbar(){var t=$('tbar');if(editing){t.innerHTML='<div style="width:100%;background:#eef4ff;border:1px solid #c9d6f5;border-radius:10px;padding:11px 13px;font-size:13.5px;font-weight:700;color:#2b3a67;line-height:1.6">📝 <b>수정 모드</b> — 표 안 각 칸을 눌러 글자를 고치고, <b>＋행/−행·＋열/−열</b>로 칸을 늘리거나 줄이세요. 다 되면 <b>💾 저장</b>.</div><div class="row2" style="margin-top:8px"><button class="btn green small" onclick="saveEdit()">💾 저장</button><button class="btn ghost small" onclick="cancelEdit()">취소</button></div>';}else t.innerHTML='';}
-function renderEdit(){var t=$('boardH');t.className='board edit';var bb=board();if(bb){var th=theme(bb);t.style.setProperty('--tt',th.t);t.style.setProperty('--th',th.h);t.style.setProperty('--te',th.e);if(t.parentElement)t.parentElement.style.borderColor=th.e;}var c=draft;var AC=c.answerCols.length,total=2+AC+1;var h='';
+function renderEdit(){var t=$('boardH');t.className='board edit';t.dataset.edit='1';var bb=board();if(bb){var th=theme(bb);t.style.setProperty('--tt',th.t);t.style.setProperty('--th',th.h);t.style.setProperty('--te',th.e);if(t.parentElement)t.parentElement.style.borderColor=th.e;}var c=draft;var AC=c.answerCols.length,total=2+AC+1;var h='';
   (c.title||[]).forEach(function(l,i){h+='<tr><td class="title" colspan="'+total+'"><div class="row2" style="justify-content:center"><input value="'+esc(l).replace(/"/g,'&quot;')+'" oninput="dTitle('+i+',this.value)" style="max-width:70%"><button class="mini del" onclick="dDelTitle('+i+')">− 제목</button></div></td></tr>';});
   h+='<tr><td class="title" colspan="'+total+'"><button class="mini add" onclick="dAddTitle()">＋ 제목 줄</button></td></tr>';
   h+='<tr><td class="head" colspan="2"><input value="'+esc(c.labelHeader||'').replace(/"/g,'&quot;')+'" oninput="dHead(this.value)"></td>';
@@ -216,8 +216,8 @@ function dHead(v){draft.labelHeader=v;}
 function dCol(i,v){draft.answerCols[i]=v;} function dAddCol(){draft.answerCols.push('선택 '+(draft.answerCols.length+1));renderEdit();} function dDelCol(i){if(draft.answerCols.length>1){draft.answerCols.splice(i,1);renderEdit();}else alert('열은 최소 1개.');}
 function dGroup(i,v){draft.rows[i].group=v;} function dLabel(i,v){draft.rows[i].label=v;}
 function dAddRow(){draft.rows.push({group:'',label:''});renderEdit();} function dDelRow(i){if(draft.rows.length>1){draft.rows.splice(i,1);renderEdit();}else alert('행은 최소 1개.');}
-function toggleEdit(){if(editing){cancelEdit();return;}var b=board();if(!b)return;draft=JSON.parse(JSON.stringify(b.config));editing=true;$('editToggle').textContent='✕ 수정 끝내기';renderTbar();renderEdit();try{window.scrollTo(0,0);}catch(e){}}
-function cancelEdit(){editing=false;draft=null;$('editToggle').textContent='✏️ 표 수정하기';render();}
+function toggleEdit(){if(editing){cancelEdit();return;}var b=board();if(!b)return;draft=JSON.parse(JSON.stringify(b.config));editing=true;$('editToggle').textContent='✕ 수정 끝내기';$('boardH').dataset.edit='';renderTbar();renderEdit();try{window.scrollTo(0,0);}catch(e){}}
+function cancelEdit(){editing=false;draft=null;$('boardH').dataset.edit='';$('editToggle').textContent='✏️ 표 수정하기';render();}
 async function saveEdit(){if(!draft.answerCols.length||!draft.rows.length){alert('열과 행이 각각 1개 이상 필요합니다.');return;}var r=await apiH('/api/board',{action:'config',boardId:board().id,config:draft});if(r&&r.ok){editing=false;draft=null;$('editToggle').textContent='✏️ 표 수정하기';poll();}else alert('저장 실패');}
 
 // ---------- host actions ----------
@@ -256,8 +256,8 @@ function render(){
   else if(role==='host'){ enterHost(); }
 }
 function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true);
-  if(editing)renderEdit(); else renderBoardInto('boardH','tableHintH',false);
-  var b=board(); $('startBtn').textContent=ST.turn.started?'▶ 다시 시작':'▶ 시작'; $('ppt').value=ST.turn.picksPerTurn||1; renderTbar(); renderQR(); }
+  if(editing){ if(!$('boardH').dataset.edit){ renderEdit(); $('boardH').dataset.edit='1'; } } else { $('boardH').dataset.edit=''; renderBoardInto('boardH','tableHintH',false); }
+  var b=board(); $('startBtn').textContent=ST.turn.started?'▶ 다시 시작':'▶ 시작'; if(document.activeElement!==$('ppt'))$('ppt').value=ST.turn.picksPerTurn||1; renderTbar(); renderQR(); }
 
 Object.assign(window,{join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
