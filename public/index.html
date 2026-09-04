@@ -66,6 +66,7 @@
 <body>
 <div class="app">
   <div class="top"><div class="brand">친구 결과 예측판</div><div id="topRight"></div></div>
+  <div id="connbar"></div>
 
   <!-- 이름 입력(참여) -->
   <div id="nameGate" class="hidden">
@@ -140,7 +141,7 @@ var role=localStorage.getItem('fb_role')||'player';
 var myId=localStorage.getItem('fb_pid'); if(!myId){myId=(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('fb_pid',myId);}
 var myName=localStorage.getItem('fb_name')||'';
 var sel=localStorage.getItem('fb_sel')||'';
-var editing=false,draft=null;
+var editing=false,draft=null,connErr='';
 
 function board(){for(var i=0;i<ST.boards.length;i++)if(ST.boards[i].id===sel)return ST.boards[i];return ST.boards[0];}
 function curPlayer(){return ST.players.length?ST.players[ST.turn.curIdx%ST.players.length]:null;}
@@ -245,6 +246,7 @@ function changePin(){var np=($('newPin').value||'').trim();if(np.length<4){$('pi
 function renderQR(){var url=location.origin;var L=$('linkline');if(L)L.textContent=url;var box=$('qr');if(box&&!box.dataset.done){try{if(window.QRCode){new QRCode(box,{text:url,width:130,height:130,correctLevel:QRCode.CorrectLevel.M});box.dataset.done='1';}}catch(e){}}}
 
 function render(){
+  var cb=$('connbar'); if(cb){ cb.innerHTML= connErr ? '<div style="background:#fdeaea;border:1px solid #e0999955;color:#b13636;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;font-weight:700">⚠ 서버 연결 문제: '+esc(connErr)+' — 잠시 후 자동 재시도합니다. (방장 화면에서 표를 먼저 만들었는지, 새로고침도 확인)</div>' : ''; }
   if(sel && !ST.boards.find(function(b){return b.id===sel;}))sel=ST.boards[0]?ST.boards[0].id:'';
   $('nameGate').classList.toggle('hidden',!(role==='player'&&!myName));
   $('play').classList.toggle('hidden',!(role==='player'&&myName));
@@ -259,8 +261,8 @@ function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',fa
 
 Object.assign(window,{join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
-async function poll(){var st=await api('/api/state');if(st&&st.boards){if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;render();}}
-(async function(){await poll();setInterval(poll,1500);})();
+async function poll(){var st=await api('/api/state');if(st&&st.boards){connErr='';if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;}else{connErr=(st&&st.error)?st.error:'응답 없음';}render();}
+render();(async function(){await poll();setInterval(poll,1500);})();
 </script>
 </body>
 </html>
