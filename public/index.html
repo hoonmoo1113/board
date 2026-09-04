@@ -80,6 +80,7 @@
       <p class="note" style="margin-top:0">이름을 넣고 참여하면 내 색이 지정됩니다. 내 차례에만 빈칸을 채울 수 있어요.</p>
       <input class="nameinput" id="nameInput" maxlength="16" placeholder="이름 (예: 홍길동)">
       <button class="btn green" style="width:100%" onclick="join()">참여하기</button>
+      <button class="btn ghost" style="width:100%;margin-top:8px" onclick="enableNotify()" id="notifyBtn">🔔 내 차례 알림 켜기</button>
       <p class="note" id="joinErr" style="color:#b13636"></p>
     </div>
     <div class="foot"><button class="link" onclick="goHost()">방장 화면</button></div>
@@ -260,14 +261,51 @@ function render(){
   $('topRight').innerHTML = role==='host' ? '' : (myName?('<span class="whoami"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:'+((findPlayer(myId)||{}).color||'#4ADE80')+'"></span>'+esc(myName)+'</span>'):'');
   if(role==='player'&&myName){ renderTabs('tabs',false); paintTurn('turnbar','prog',true); renderBoardInto('board','tableHint',true); renderPlayers('players',false); }
   else if(role==='host'){ enterHost(); }
+  checkTurnAlert();
 }
 function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true);
   if(editing){ if(!$('boardH').dataset.edit){ renderEdit(); $('boardH').dataset.edit='1'; } } else { $('boardH').dataset.edit=''; renderBoardInto('boardH','tableHintH',false); }
   var b=board(); $('startBtn').textContent=ST.turn.started?'▶ 다시 시작':'▶ 시작'; if(document.activeElement!==$('ppt'))$('ppt').value=ST.turn.picksPerTurn||1; renderTbar(); renderQR(); }
 
-Object.assign(window,{join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
+Object.assign(window,{enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
+
+
+var notifyOn=false, wasMyTurn=false, lastTurnKey='';
+function enableNotify(){
+  try{
+    if(!('Notification' in window)){ alert('이 브라우저는 알림을 지원하지 않습니다.'); return; }
+    Notification.requestPermission().then(function(perm){
+      notifyOn = (perm==='granted');
+      var b=$('notifyBtn'); if(b) b.textContent = notifyOn ? '🔔 알림 켜짐' : '🔔 알림이 꺼져 있어요(권한 거부)';
+      if(notifyOn){ try{ new Notification('알림이 켜졌습니다', {body:'내 차례가 되면 알려드릴게요!', icon:'icon-192.png'}); }catch(e){} }
+    });
+  }catch(e){}
+}
+function beep(){
+  try{ var Ctx=window.AudioContext||window.webkitAudioContext; if(!Ctx)return; var ac=beep._ac||(beep._ac=new Ctx());
+    if(ac.state==='suspended')ac.resume();
+    [0,0.18].forEach(function(off){ var o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.value=880;
+      o.connect(g); g.connect(ac.destination); var t=ac.currentTime+off; g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.25,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16); o.start(t); o.stop(t+0.17); });
+  }catch(e){}
+}
+function fireMyTurnAlert(){
+  try{ if(navigator.vibrate) navigator.vibrate([200,90,200]); }catch(e){}
+  beep();
+  try{ if(notifyOn && document.hidden){ var n=new Notification('🟢 내 차례예요!', {body:'지금 빈칸을 채울 차례입니다.', icon:'icon-192.png', tag:'myturn', renotify:true}); n.onclick=function(){ window.focus(); n.close(); }; } }catch(e){}
+  try{ document.title='🟢 내 차례! · 친구와의 즐거운 내기 한판'; }catch(e){}
+}
+function checkTurnAlert(){
+  if(role!=='player' || !myName){ wasMyTurn=false; return; }
+  var mine = meIsCurrent();
+  var key = (ST.turn.started?'1':'0')+':'+ST.turn.curIdx+':'+((curPlayer()||{}).id||'');
+  if(mine && (!wasMyTurn || key!==lastTurnKey)){ fireMyTurnAlert(); }
+  if(!mine){ try{ if(document.title.indexOf('내 차례')>=0) document.title='친구와의 즐거운 내기 한판'; }catch(e){} }
+  wasMyTurn=mine; lastTurnKey=key;
+}
 
 async function poll(){var st=await api('/api/state');if(st&&st.boards){connErr='';if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;}else{connErr=(st&&st.error)?st.error:'응답 없음';}render();}
+try{ if(('Notification' in window)&&Notification.permission==='granted')notifyOn=true; }catch(e){}
 render();(async function(){await poll();setInterval(poll,1500);})();
 </script>
 </body>
