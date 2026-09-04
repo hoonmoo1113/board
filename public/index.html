@@ -260,7 +260,7 @@ function render(){
   $('play').classList.toggle('hidden',!(role==='player'&&myName));
   $('host').classList.toggle('hidden',role!=='host');
   $('topRight').innerHTML = role==='host' ? '' : (myName?('<span class="whoami"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:'+((findPlayer(myId)||{}).color||'#4ADE80')+'"></span>'+esc(myName)+'</span> <button class="btn ghost small" onclick="enableNotify()">'+(notifyOn?'🔔 알림 켜짐':'🔔 알림 켜기')+'</button>'):'');
-  if(role==='player'&&myName){ renderTabs('tabs',false); paintTurn('turnbar','prog',true); renderBoardInto('board','tableHint',true); renderPlayers('players',false); var nr=$('notifyRow'); if(nr) nr.innerHTML = notifyOn ? '' : '<button class="btn small" onclick="enableNotify()">🔔 내 차례 알림 켜기</button> <span class="note" style="margin:0">차례가 오면 소리·진동으로 알려드려요</span>'; }
+  if(role==='player'&&myName){ renderTabs('tabs',false); paintTurn('turnbar','prog',true); renderBoardInto('board','tableHint',true); renderPlayers('players',false); var nr=$('notifyRow'); if(nr) nr.innerHTML = (notifyOn||pushOn) ? '' : '<button class="btn small" onclick="enableNotify()">🔔 내 차례 알림 켜기</button> <span class="note" style="margin:0">차례가 오면 소리·진동으로 알려드려요</span>'; }
   else if(role==='host'){ enterHost(); }
   checkTurnAlert();
 }
@@ -271,15 +271,31 @@ function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',fa
 Object.assign(window,{enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
 
-var notifyOn=false, wasMyTurn=false, lastTurnKey='';
-function enableNotify(){
+var notifyOn=false, pushOn=false, wasMyTurn=false, lastTurnKey='';
+function urlB64ToUint8(base64){var pad='='.repeat((4-base64.length%4)%4);var b64=(base64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(b64);var arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
+async function subscribePush(silent){
   try{
-    if(!('Notification' in window)){ alert('이 브라우저는 알림을 지원하지 않습니다.'); return; }
-    Notification.requestPermission().then(function(perm){
-      notifyOn = (perm==='granted');
-      var b=$('notifyBtn'); if(b) b.textContent = notifyOn ? '🔔 알림 켜짐' : '🔔 알림이 꺼져 있어요(권한 거부)';
-      if(notifyOn){ try{ new Notification('알림이 켜졌습니다', {body:'내 차례가 되면 알려드릴게요!', icon:'icon-192.png'}); }catch(e){} } try{ render(); }catch(e){}
-    });
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    var reg=await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    var vr=await (await fetch('/api/vapid')).json();
+    if(!vr || !vr.key) return false;
+    var sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(vr.key)});
+    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId:myId, sub:sub})});
+    pushOn=true; return true;
+  }catch(e){ if(!silent)console.log('push sub err',e); return false; }
+}
+async function enableNotify(){
+  try{
+    if(!('Notification' in window)){ alert('이 브라우저는 웹 알림을 지원하지 않습니다.\n아이폰은 먼저 「홈 화면에 추가」로 앱을 설치한 뒤 그 앱에서 켜주세요.'); return; }
+    var perm=await Notification.requestPermission();
+    notifyOn=(perm==='granted');
+    if(!notifyOn){ try{render();}catch(e){} alert('알림 권한이 꺼져 있어요.\n폰 설정 > 이 사이트(또는 홈 화면 앱)의 알림을 허용해 주세요.'); return; }
+    var ok=await subscribePush(false);
+    try{render();}catch(e){}
+    try{ new Notification(ok?'✅ 내 차례 알림이 켜졌습니다':'알림이 켜졌습니다', {body: ok?'폰이 잠겨 있어도 내 차례가 되면 알려드려요!':'내 차례가 되면 알려드릴게요!', icon:'icon-192.png'}); }catch(e){}
+    if(!ok) alert('알림은 켜졌지만 백그라운드 푸시 등록에 실패했어요.\n앱을 홈 화면에 추가한 상태에서 다시 시도하면 폰이 잠겨 있어도 알림이 옵니다.');
   }catch(e){}
 }
 function beep(){
@@ -306,7 +322,7 @@ function checkTurnAlert(){
 }
 
 async function poll(){var st=await api('/api/state');if(st&&st.boards){connErr='';if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;}else{connErr=(st&&st.error)?st.error:'응답 없음';}render();}
-try{ if(('Notification' in window)&&Notification.permission==='granted')notifyOn=true; }catch(e){}
+try{ if(('Notification' in window)&&Notification.permission==='granted'){ notifyOn=true; subscribePush(true); } }catch(e){}
 render();(async function(){await poll();setInterval(poll,1500);})();
 </script>
 </body>
