@@ -37,15 +37,23 @@
   table.board td{border:1px solid var(--te);padding:9px 8px;text-align:center;font-size:15px;font-weight:600}
   table.board td.title{background:var(--tt);font-weight:900;font-size:18px;padding:11px}
   table.board td.head{background:var(--th);font-weight:800}
-  table.board td.grp{background:#fffdf3;font-weight:800;font-size:16px}
-  table.board td.lbl{background:#fffdf3;font-weight:700}
+  table.board td.grp{background:#fffdf3;font-weight:800;font-size:15px;white-space:normal;word-break:keep-all;line-height:1.25;width:64px;min-width:56px;max-width:78px;padding:8px 4px}
+  table.board td.lbl{background:#fffdf3;font-weight:700;white-space:nowrap;padding:9px 10px}
+  @media(max-width:520px){
+    table.board td{font-size:14px;padding:8px 6px}
+    table.board td.grp{font-size:13.5px;width:52px;min-width:48px;padding:8px 3px}
+    table.board td.lbl{font-size:13.5px;padding:8px 7px}
+    table.board td.ans{min-width:78px}
+    table.board td.strikebtn{width:32px}
+    .sbtn{padding:5px 6px;font-size:13px}
+  }
   table.board td.ans{min-width:100px;height:50px;color:#333}
   table.board td.ans.pick{cursor:pointer;background:#f4f6ff}
   table.board td.ans.pick:active{background:#dfe6ff}
   table.board td.ans .nm{font-weight:800;font-size:14px}
   table.board td.ph{background:#f6f6f2;color:#b7b7ad;font-size:12px;font-weight:600}
-  table.board tr.struck td{filter:grayscale(1) opacity(.55);position:relative}
-  table.board tr.struck td::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;background:#e11d48;box-shadow:0 0 0 1px #ffffffaa;transform:translateY(-50%);pointer-events:none}
+  table.board tr.struck td:not(.grp):not(.strikebtn){filter:grayscale(1) opacity(.55);position:relative}
+  table.board tr.struck td:not(.grp):not(.strikebtn)::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;background:#e11d48;box-shadow:0 0 0 1px #ffffffaa;transform:translateY(-50%);pointer-events:none}
   table.board td.lbl .xmark{color:#e11d48;font-weight:900;margin-left:6px;font-size:12px}
   table.board td.strikebtn{background:#fff;border:none;padding:0 4px;width:38px}
   .sbtn{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:14px;font-weight:900;padding:6px 8px;cursor:pointer;color:#b0b4c4;line-height:1}
