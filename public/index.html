@@ -44,6 +44,12 @@
   table.board td.ans.pick:active{background:#dfe6ff}
   table.board td.ans .nm{font-weight:800;font-size:14px}
   table.board td.ph{background:#f6f6f2;color:#b7b7ad;font-size:12px;font-weight:600}
+  table.board tr.struck td{filter:grayscale(1) opacity(.55);position:relative}
+  table.board tr.struck td::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;background:#e11d48;box-shadow:0 0 0 1px #ffffffaa;transform:translateY(-50%);pointer-events:none}
+  table.board td.lbl .xmark{color:#e11d48;font-weight:900;margin-left:6px;font-size:12px}
+  table.board td.strikebtn{background:#fff;border:none;padding:0 4px;width:38px}
+  .sbtn{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:14px;font-weight:900;padding:6px 8px;cursor:pointer;color:#b0b4c4;line-height:1}
+  .sbtn.on{background:#fdeaea;border-color:#e0999955;color:#e11d48}
   table.board.edit td{padding:5px}
   table.board.edit input{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font-size:14px;font-weight:700;background:#fff;text-align:center}
   .mini{padding:6px 12px;font-size:13px;font-weight:800;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink);margin-top:6px}
@@ -144,7 +150,7 @@ async function api(p,b){var o={headers:{'Content-Type':'application/json'}};if(b
 function hpin(){return localStorage.getItem('fb_pin')||'';}
 async function apiH(p,b){var r=await api(p,Object.assign({pin:hpin()},b||{}));if(r&&r.error==='pin'){localStorage.removeItem('fb_pin');alert('방장 비밀번호를 다시 입력해 주세요.');render();}return r;}
 
-var ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{}};
+var ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},strikes:{}};
 var role=localStorage.getItem('fb_role')||'player';
 var myId=localStorage.getItem('fb_pid'); if(!myId){myId=(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('fb_pid',myId);}
 var myName=localStorage.getItem('fb_name')||'';
@@ -181,19 +187,22 @@ function renderPlayers(elId,hostMode){var w=$(elId);if(!w)return;
     var ctl=hostMode?('<span class="ord" onclick="event.stopPropagation();movePlayer('+i+',-1)">▲</span><span class="ord" onclick="event.stopPropagation();movePlayer('+i+',1)">▼</span><span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span>'):'';
     return '<span class="'+cls+'"><span class="dot" style="background:'+p.color+'"></span>'+(i+1)+'. '+esc(p.name)+(p.id===myId?' <b style="color:#1E9E52">(나)</b>':'')+ctl+'</span>';}).join('')||'<span class="note">아직 참가자가 없습니다.'+(hostMode?' 친구가 접속하거나 직접 추가하세요.':' 참여하면 여기에 표시됩니다.')+'</span>';}
 function renderBoardInto(elId,hintId,interactive){var b=board();var t=$(elId);t.className='board';if(!b){t.innerHTML='';return;}var th=theme(b);t.style.setProperty('--tt',th.t);t.style.setProperty('--th',th.h);t.style.setProperty('--te',th.e);if(t.parentElement)t.parentElement.style.borderColor=th.e;
-  var c=b.config,AC=c.answerCols.length,total=2+AC,claims=ST.claims[b.id]||{};var canPick=interactive&&meIsCurrent();
+  var c=b.config,AC=c.answerCols.length,total=2+AC+1,claims=ST.claims[b.id]||{};var canPick=interactive&&meIsCurrent();
   var h='';(c.title||[]).forEach(function(l){h+='<tr><td class="title" colspan="'+total+'">'+esc(l)+'</td></tr>';});
-  h+='<tr><td class="head" colspan="2">'+esc(c.labelHeader||'')+'</td>'+c.answerCols.map(function(a){return '<td class="head">'+esc(a)+'</td>';}).join('')+'</tr>';
+  h+='<tr><td class="head" colspan="2">'+esc(c.labelHeader||'')+'</td>'+c.answerCols.map(function(a){return '<td class="head">'+esc(a)+'</td>';}).join('')+'<td class="head" style="font-size:11px;color:#8a8f9f">탈락</td></tr>';
   var info=groupRuns(c.rows);
-  c.rows.forEach(function(row,ri){h+='<tr>';
-    if(info[ri].grouped){if(info[ri].start)h+='<td class="grp" rowspan="'+info[ri].span+'">'+esc(row.group)+'</td>';h+='<td class="lbl">'+esc(row.label)+'</td>';}
-    else h+='<td class="lbl" colspan="2">'+esc(row.label)+'</td>';
+  var sm=(ST.strikes&&ST.strikes[b.id])||{};
+  c.rows.forEach(function(row,ri){var st=!!sm[ri];h+='<tr class="'+(st?'struck':'')+'">';
+    if(info[ri].grouped){if(info[ri].start)h+='<td class="grp" rowspan="'+info[ri].span+'">'+esc(row.group)+'</td>';h+='<td class="lbl">'+esc(row.label)+(st?'<span class="xmark">✕</span>':'')+'</td>';}
+    else h+='<td class="lbl" colspan="2">'+esc(row.label)+(st?'<span class="xmark">✕</span>':'')+'</td>';
     for(var a=0;a<AC;a++){var cell=ri+'_'+a,owner=claims[cell];
       if(owner){var pl=findPlayer(owner),col=pl?pl.color:'#888';h+='<td class="ans" data-c="'+cell+'" style="background:'+tint(col)+';border-left:4px solid '+col+'"><span class="nm" style="color:'+col+'">'+(pl?esc(pl.name):'?')+'</span></td>';}
       else h+='<td class="ans'+(canPick?' pick':'')+'" data-c="'+cell+'"></td>';}
+    h+='<td class="strikebtn"><button class="sbtn'+(st?' on':'')+'" data-r="'+ri+'" title="결과 아님(탈락) 표시">✕</button></td>';
     h+='</tr>';});
   t.innerHTML=h;
   if(interactive){var cells=t.querySelectorAll('td.ans');for(var k=0;k<cells.length;k++){(function(td){td.onclick=function(){onCellPlayer(td.getAttribute('data-c'));};})(cells[k]);}}
+  var sbs=t.querySelectorAll('button.sbtn');for(var q=0;q<sbs.length;q++){(function(bt){bt.onclick=function(ev){ev.stopPropagation();toggleStrike(+bt.getAttribute('data-r'));};})(sbs[q]);}
   if(hintId)$(hintId).textContent=canPick?'지금 내 차례! 빈칸을 누르면 내 이름으로 채워집니다.':(interactive?'다른 사람 차례입니다. 잠시 기다려 주세요.':'');}
 
 // ---------- player ----------
@@ -201,6 +210,7 @@ async function join(){var v=($('nameInput').value||'').trim();if(!v)return;var r
   if(r.ok){myName=v;localStorage.setItem('fb_name',myName);render();}
   else $('joinErr').textContent=r.error==='started'?'이미 시작되어 참여할 수 없습니다. 방장에게 문의하세요.':'참여 실패';}
 function changeName(){myName='';localStorage.removeItem('fb_name');render();}
+async function toggleStrike(row){ var b=board(); if(!b)return; await api('/api/strike',{boardId:b.id,row:row}); poll(); }
 async function onCellPlayer(cell){if(!meIsCurrent()){alert('아직 당신 차례가 아닙니다.');return;}
   var r=await api('/api/claim',{boardId:board().id,cell:cell,playerId:myId});
   if(r&&r.error==='not_turn')alert('아직 당신 차례가 아닙니다.'); else if(r&&r.error==='taken')alert('이미 채워진 칸입니다.');
@@ -268,7 +278,7 @@ function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',fa
   if(editing){ if(!$('boardH').dataset.edit){ renderEdit(); $('boardH').dataset.edit='1'; } } else { $('boardH').dataset.edit=''; renderBoardInto('boardH','tableHintH',false); }
   var b=board(); $('startBtn').textContent=ST.turn.started?'▶ 다시 시작':'▶ 시작'; if(document.activeElement!==$('ppt'))$('ppt').value=ST.turn.picksPerTurn||1; renderTbar(); renderQR(); }
 
-Object.assign(window,{enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
+Object.assign(window,{toggleStrike:toggleStrike,enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
 
 var notifyOn=false, pushOn=false, wasMyTurn=false, lastTurnKey='';
@@ -321,7 +331,7 @@ function checkTurnAlert(){
   wasMyTurn=mine; lastTurnKey=key;
 }
 
-async function poll(){var st=await api('/api/state');if(st&&st.boards){connErr='';if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!Array.isArray(st.players))st.players=[];ST=st;}else{connErr=(st&&st.error)?st.error:'응답 없음';}render();}
+async function poll(){var st=await api('/api/state');if(st&&st.boards){connErr='';if(!st.turn)st.turn={curIdx:0,remaining:1,picksPerTurn:1,started:false};if(!st.claims)st.claims={};if(!st.strikes)st.strikes={};if(!Array.isArray(st.players))st.players=[];ST=st;}else{connErr=(st&&st.error)?st.error:'응답 없음';}render();}
 try{ if(('Notification' in window)&&Notification.permission==='granted'){ notifyOn=true; subscribePush(true); } }catch(e){}
 render();(async function(){await poll();setInterval(poll,1500);})();
 </script>
