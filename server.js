@@ -34,6 +34,7 @@ async function init(){
   await db.execute(`CREATE TABLE IF NOT EXISTS board_claims_v2(board_id TEXT, cell TEXT, player_id TEXT, ts INTEGER, PRIMARY KEY(board_id,cell))`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_push_subs(player_id TEXT PRIMARY KEY, sub TEXT, ts INTEGER)`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_strikes(board_id TEXT, row_idx INTEGER, ts INTEGER, PRIMARY KEY(board_id,row_idx))`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS board_results(board_id TEXT PRIMARY KEY, kind TEXT, cell TEXT, ts INTEGER)`);
   let vapid = await J('board:vapid', null);
   if(!vapid || !vapid.publicKey){ vapid = webpush.generateVAPIDKeys(); await setS('board:vapid', JSON.stringify(vapid)); }
   VAPID_PUB = vapid.publicKey;
@@ -45,6 +46,22 @@ async function init(){
 async function claimsMap(){ const r=await db.execute(`SELECT board_id,cell,player_id FROM board_claims_v2`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.cell]=x.player_id;}); return m; }
 function validCell(cell,cfg){ const m=/^(\d+)_(\d+)$/.exec(cell||''); if(!m)return false; const r=+m[1],a=+m[2]; return r>=0&&r<cfg.rows.length&&a>=0&&a<cfg.answerCols.length; }
 function advance(t,players){ t.remaining=(t.remaining||1)-1; if(t.remaining<=0){ t.curIdx=(t.curIdx+1)%players.length; t.remaining=t.picksPerTurn||1; } }
+
+async function resultsMap(){ const r=await db.execute(`SELECT board_id,kind,cell FROM board_results`); const m={}; r.rows.forEach(x=>{ m[x.board_id]={kind:x.kind,cell:x.cell}; }); return m; }
+
+app.post('/api/result', async (req,res)=>{
+  try{
+    const {boardId,kind,cell}=req.body||{};
+    const boards=await getBoards(); const b=boards.find(x=>x.id===boardId);
+    if(!b) return res.status(404).json({error:'no_board'});
+    if(kind==='none'){ await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); return res.json({ok:true}); }
+    if(kind==='win'){ if(!validCell(cell,b.config)) return res.status(400).json({error:'bad_cell'}); }
+    else if(kind!=='draw' && kind!=='cancel') return res.status(400).json({error:'bad_kind'});
+    await db.execute({sql:`INSERT INTO board_results(board_id,kind,cell,ts) VALUES(?,?,?,?) ON CONFLICT(board_id) DO UPDATE SET kind=excluded.kind,cell=excluded.cell,ts=excluded.ts`,
+      args:[boardId,kind,kind==='win'?String(cell):null,Date.now()]});
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:String(e)}); }
+});
 
 async function strikesMap(){ const r=await db.execute(`SELECT board_id,row_idx FROM board_strikes`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.row_idx]=1;}); return m; }
 
@@ -83,7 +100,7 @@ app.post('/api/subscribe', async (req,res)=>{
 });
 
 app.get('/api/state', async (req,res)=>{
-  try{ res.json({ boards:await getBoards(), players:await getPlayers(), turn:await getTurn(), claims:await claimsMap(), strikes:await strikesMap(), palette:PALETTE }); }
+  try{ res.json({ boards:await getBoards(), players:await getPlayers(), turn:await getTurn(), claims:await claimsMap(), strikes:await strikesMap(), results:await resultsMap(), palette:PALETTE }); }
   catch(e){ res.status(500).json({error:String(e)}); }
 });
 
@@ -141,13 +158,13 @@ app.post('/api/board', async (req,res)=>{ try{ if(!await auth(req))return res.st
   const idx=boards.findIndex(x=>x.id===boardId); const b=boards[idx]; if(!b) return res.status(404).json({error:'no_board'});
   if(action==='rename') b.name=String(name||b.name).slice(0,24);
   else if(action==='config'){ if(!config||!Array.isArray(config.rows)||!Array.isArray(config.answerCols)) return res.status(400).json({error:'bad'}); b.config=config; }
-  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); }
+  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); }
   else if(action==='duplicate'){ const id='b'+Date.now(); boards.splice(idx+1,0,{id,name:String(name||(b.name+' 복사')).slice(0,24),config:JSON.parse(JSON.stringify(b.config)),themeIdx:boards.length%THEMES}); await setBoards(boards); return res.json({ok:true,id}); }
   else if(action==='move'){ const j=idx+(req.body.dir<0?-1:1); if(j<0||j>=boards.length) return res.json({ok:true}); const tmp=boards[idx]; boards[idx]=boards[j]; boards[j]=tmp; }
   else if(action==='delete'){ if(boards.length<=1) return res.status(400).json({error:'last'}); boards.splice(idx,1); await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); }
   await setBoards(boards); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/reset', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
-  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); let t=await getTurn(); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; await setTurn(t);
+  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); await db.execute(`DELETE FROM board_results`); let t=await getTurn(); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; await setTurn(t);
   if(req.body?.clearPlayers) await setPlayers([]); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/admin/check', async (req,res)=>res.json({ok:(req.body?.pin)===await getPin()}));
 app.post('/api/admin/pin', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const np=String(req.body?.newPin||'').trim(); if(np.length<4||np.length>20)return res.status(400).json({error:'length'}); await setS('board:admin_pin',np); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
