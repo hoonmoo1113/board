@@ -34,6 +34,7 @@ async function init(){
   await db.execute(`CREATE TABLE IF NOT EXISTS board_claims_v2(board_id TEXT, cell TEXT, player_id TEXT, ts INTEGER, PRIMARY KEY(board_id,cell))`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_push_subs(player_id TEXT PRIMARY KEY, sub TEXT, ts INTEGER)`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_strikes(board_id TEXT, row_idx INTEGER, ts INTEGER, PRIMARY KEY(board_id,row_idx))`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS board_cell_strikes(board_id TEXT, cell TEXT, ts INTEGER, PRIMARY KEY(board_id,cell))`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_results(board_id TEXT PRIMARY KEY, kind TEXT, cell TEXT, ts INTEGER)`);
   let vapid = await J('board:vapid', null);
   if(!vapid || !vapid.publicKey){ vapid = webpush.generateVAPIDKeys(); await setS('board:vapid', JSON.stringify(vapid)); }
@@ -78,6 +79,22 @@ app.post('/api/strike', async (req,res)=>{
   }catch(e){ res.status(500).json({error:String(e)}); }
 });
 
+async function cellStrikesMap(){ const r=await db.execute(`SELECT board_id,cell FROM board_cell_strikes`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.cell]=1;}); return m; }
+
+// 칸(열) 단위 탈락: 같은 행에서 한쪽 답만 개별적으로 탈락시킬 때 사용
+app.post('/api/strikecell', async (req,res)=>{
+  try{
+    const {boardId,cell}=req.body||{};
+    const boards=await getBoards(); const b=boards.find(x=>x.id===boardId);
+    if(!b) return res.status(404).json({error:'no_board'});
+    if(!validCell(cell,b.config)) return res.status(400).json({error:'bad_cell'});
+    const ex=await db.execute({sql:`SELECT 1 FROM board_cell_strikes WHERE board_id=? AND cell=?`,args:[boardId,cell]});
+    if(ex.rows.length) await db.execute({sql:`DELETE FROM board_cell_strikes WHERE board_id=? AND cell=?`,args:[boardId,cell]});
+    else await db.execute({sql:`INSERT INTO board_cell_strikes(board_id,cell,ts) VALUES(?,?,?)`,args:[boardId,cell,Date.now()]});
+    res.json({ok:true, struck: !ex.rows.length});
+  }catch(e){ res.status(500).json({error:String(e)}); }
+});
+
 async function notifyCurrent(){
   try{
     const players=await getPlayers(), turn=await getTurn();
@@ -100,7 +117,7 @@ app.post('/api/subscribe', async (req,res)=>{
 });
 
 app.get('/api/state', async (req,res)=>{
-  try{ res.json({ boards:await getBoards(), players:await getPlayers(), turn:await getTurn(), claims:await claimsMap(), strikes:await strikesMap(), results:await resultsMap(), palette:PALETTE }); }
+  try{ res.json({ boards:await getBoards(), players:await getPlayers(), turn:await getTurn(), claims:await claimsMap(), strikes:await strikesMap(), cellStrikes:await cellStrikesMap(), results:await resultsMap(), palette:PALETTE }); }
   catch(e){ res.status(500).json({error:String(e)}); }
 });
 
@@ -158,13 +175,13 @@ app.post('/api/board', async (req,res)=>{ try{ if(!await auth(req))return res.st
   const idx=boards.findIndex(x=>x.id===boardId); const b=boards[idx]; if(!b) return res.status(404).json({error:'no_board'});
   if(action==='rename') b.name=String(name||b.name).slice(0,24);
   else if(action==='config'){ if(!config||!Array.isArray(config.rows)||!Array.isArray(config.answerCols)) return res.status(400).json({error:'bad'}); b.config=config; }
-  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); }
+  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_cell_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); }
   else if(action==='duplicate'){ const id='b'+Date.now(); boards.splice(idx+1,0,{id,name:String(name||(b.name+' 복사')).slice(0,24),config:JSON.parse(JSON.stringify(b.config)),themeIdx:boards.length%THEMES}); await setBoards(boards); return res.json({ok:true,id}); }
   else if(action==='move'){ const j=idx+(req.body.dir<0?-1:1); if(j<0||j>=boards.length) return res.json({ok:true}); const tmp=boards[idx]; boards[idx]=boards[j]; boards[j]=tmp; }
-  else if(action==='delete'){ if(boards.length<=1) return res.status(400).json({error:'last'}); boards.splice(idx,1); await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); }
+  else if(action==='delete'){ if(boards.length<=1) return res.status(400).json({error:'last'}); boards.splice(idx,1); await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_cell_strikes WHERE board_id=?`,args:[boardId]}); }
   await setBoards(boards); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/reset', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
-  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); await db.execute(`DELETE FROM board_results`); let t=await getTurn(); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; await setTurn(t);
+  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); await db.execute(`DELETE FROM board_cell_strikes`); await db.execute(`DELETE FROM board_results`); let t=await getTurn(); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; await setTurn(t);
   if(req.body?.clearPlayers) await setPlayers([]); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/admin/check', async (req,res)=>res.json({ok:(req.body?.pin)===await getPin()}));
 app.post('/api/admin/pin', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const np=String(req.body?.newPin||'').trim(); if(np.length<4||np.length>20)return res.status(400).json({error:'length'}); await setS('board:admin_pin',np); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
