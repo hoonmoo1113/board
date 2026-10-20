@@ -149,6 +149,7 @@
       <div class="tbar" id="tbar"></div>
       <div class="tablewrap"><table class="board" id="boardH"></table></div>
       <p class="hint" id="tableHintH"></p>
+      <div id="resultBoxH"></div>
 
       <div class="card"><h2 class="sec">진행 제어</h2><div class="ctrl">
         <button class="btn green small" id="startBtn" onclick="startGame()">▶ 시작</button>
@@ -262,8 +263,8 @@ async function join(){var v=($('nameInput').value||'').trim();if(!v)return;var r
   } else $('joinErr').textContent='참여 실패';}
 function changeName(){myName='';localStorage.removeItem('fb_name');render();}
 function winnerName(bid){var r=(ST.results||{})[bid]; if(!r||r.kind!=='win')return null; var o=((ST.claims[bid]||{})[r.cell]); var p=findPlayer(o); return p?p.name:null; }
-function renderResult(){
-  var box=$('resultBox'); if(!box) return; var b=board(); if(!b){box.innerHTML='';return;}
+function renderResult(boxId){
+  var box=$(boxId||'resultBox'); if(!box) return; var b=board(); if(!b){box.innerHTML='';return;}
   var r=(ST.results||{})[b.id]; var html='';
   if(strikeMode) html+='<div class="smodebar">✕ <b>개별 탈락 모드</b> — 칸을 눌러 그 칸만 탈락 표시/해제 &nbsp;<button class="btn ghost small" onclick="toggleStrikeMode()">끝내기</button></div>';
   if(pickWinMode) html+='<div class="pickmode">🏆 실제 결과가 나온 칸(이름이 적힌 칸)을 눌러 주세요 &nbsp;<button class="btn ghost small" onclick="cancelPickWin()">취소</button></div>';
@@ -275,7 +276,7 @@ function renderResult(){
   html+='<div class="row2" style="justify-content:center;margin:6px 0 2px">'+
     (r?'<button class="btn ghost small" onclick="setResult(\'none\')">결과 지우기</button>':
         '<button class="btn small" onclick="startPickWin()">🏆 결과 칸 지정</button><button class="btn ghost small" onclick="setResult(\'draw\')">🤝 무승부</button><button class="btn ghost small" onclick="setResult(\'cancel\')">🚫 경기 취소</button>')+
-    '<button class="btn ghost small" onclick="toggleStrikeMode()">'+(strikeMode?'✕ 개별 탈락 끝내기':'✕ 개별 탈락 표시')+'</button>'+
+    '<button class="btn '+(strikeMode?'danger':'ghost')+' small" onclick="toggleStrikeMode()">'+(strikeMode?'✕ 개별 탈락 끝내기':'✕ 개별 칸 탈락')+'</button>'+
     '</div>';
   // overall tally across boards
   var tally={},any=false;
@@ -354,11 +355,11 @@ function render(){
   $('play').classList.toggle('hidden',!(role==='player'&&myName));
   $('host').classList.toggle('hidden',role!=='host');
   $('topRight').innerHTML = role==='host' ? '' : (myName?('<span class="whoami"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:'+((findPlayer(myId)||{}).color||'#4ADE80')+'"></span>'+esc(myName)+'</span> <button class="btn ghost small" onclick="enableNotify()">'+(notifyOn?'🔔 알림 켜짐':'🔔 알림 켜기')+'</button>'):'');
-  if(role==='player'&&myName){ renderTabs('tabs',false); paintTurn('turnbar','prog',true); renderBoardInto('board','tableHint',true); renderPlayers('players',false); renderResult(); var nr=$('notifyRow'); if(nr) nr.innerHTML = (notifyOn||pushOn) ? '' : '<button class="btn small" onclick="enableNotify()">🔔 내 차례 알림 켜기</button> <span class="note" style="margin:0">차례가 오면 소리·진동으로 알려드려요</span>'; }
+  if(role==='player'&&myName){ renderTabs('tabs',false); paintTurn('turnbar','prog',true); renderBoardInto('board','tableHint',true); renderPlayers('players',false); renderResult('resultBox'); var nr=$('notifyRow'); if(nr) nr.innerHTML = (notifyOn||pushOn) ? '' : '<button class="btn small" onclick="enableNotify()">🔔 내 차례 알림 켜기</button> <span class="note" style="margin:0">차례가 오면 소리·진동으로 알려드려요</span>'; }
   else if(role==='host'){ enterHost(); }
   checkTurnAlert();
 }
-function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true);
+function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true); renderResult('resultBoxH');
   if(editing){ if(!$('boardH').dataset.edit){ renderEdit(); $('boardH').dataset.edit='1'; } } else { $('boardH').dataset.edit=''; renderBoardInto('boardH','tableHintH',false); }
   var b=board(); var _t=bturn(); var _bn=b?b.name:'';
   $('startBtn').textContent=_t.started?('▶ 「'+_bn+'」 다시 시작'):('▶ 「'+_bn+'」 시작');
