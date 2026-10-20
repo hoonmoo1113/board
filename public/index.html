@@ -195,9 +195,10 @@ function groupRuns(rows){var info=rows.map(function(){return {start:false,span:1
 function progress(){var tot=0,done=0;ST.boards.forEach(function(b){tot+=b.config.rows.length*b.config.answerCols.length;done+=Object.keys(ST.claims[b.id]||{}).length;});return {tot:tot,done:done};}
 function boardProgress(b){var tot=b.config.rows.length*b.config.answerCols.length,done=Object.keys(ST.claims[b.id]||{}).length;return {tot:tot,done:done,left:Math.max(0,tot-done)};}
 function progHTML(){
-  return ST.boards.map(function(b){var bp=boardProgress(b);var cur=(b.id===sel);
-    var txt=bp.left>0?(bp.left+'칸 남음'):'완료 ✓';
-    return '<span class="pg'+(cur?' cur':'')+(bp.left===0?' done':'')+'">'+esc(b.name)+' <b>'+txt+'</b></span>';}).join('');
+  var b=board(); if(!b) return '';
+  var bp=boardProgress(b);
+  var txt=bp.left>0?('남은 칸 <b>'+bp.left+'칸</b> <span style="opacity:.7">('+bp.done+'/'+bp.tot+' 채움)</span>'):'<b>이 판 완료 ✓</b>';
+  return '<span class="pg'+(bp.left===0?' done':' cur')+'">'+esc(b.name)+' · '+txt+'</span>';
 }
 
 // ---------- shared renderers ----------
