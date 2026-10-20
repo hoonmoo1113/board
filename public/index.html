@@ -27,7 +27,13 @@
   h2.sec{font-size:14px;margin:0 0 10px;font-weight:800}
   .turnbar{position:sticky;top:52px;z-index:25;font-size:18px;border-radius:0 0 14px 14px;padding:14px;font-weight:800;text-align:center;color:#fff;box-shadow:0 8px 20px -14px #0006}
   .turnbar.wait{background:#ecebe4;color:var(--muted)}.turnbar.done{background:#1E9E52;color:#fff}.turnbar.mine{background:linear-gradient(92deg,#1E9E52,#0C8FB8)}
-  .prog{font-size:12px;color:var(--muted);text-align:center;margin:8px 0}
+  .prog{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+  .prog .pg{font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 10px;font-weight:600}
+  .prog .pg b{color:var(--ink);font-weight:800}
+  .prog .pg.cur{border-color:#E6A700;background:#FFF7DC;color:#7a5a00}
+  .prog .pg.cur b{color:#7a5a00}
+  .prog .pg.done{background:#EAF8EE;border-color:#1E9E5233;color:#157a3f}
+  .prog .pg.done b{color:#157a3f}
   .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
   .tab{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:800;font-size:15px;padding:10px 14px;border-radius:12px 12px 0 0;cursor:pointer;white-space:nowrap}
   .tab.add{background:var(--soft);color:var(--teal)} .tab .tmove{color:#5a4a00;font-weight:900;font-size:13px;padding:0 3px;border-radius:5px}
@@ -187,6 +193,12 @@ function meIsCurrent(){var c=curPlayer();return ST.turn.started&&c&&c.id===myId;
 function findPlayer(id){for(var i=0;i<ST.players.length;i++)if(ST.players[i].id===id)return ST.players[i];return null;}
 function groupRuns(rows){var info=rows.map(function(){return {start:false,span:1,grouped:false};});for(var i=0;i<rows.length;i++){var g=rows[i].group||'';if(!g)continue;info[i].grouped=true;if(i>0&&(rows[i-1].group||'')===g){info[i].start=false;}else{info[i].start=true;var j=i,s=0;while(j<rows.length&&(rows[j].group||'')===g){s++;j++;}info[i].span=s;}}return info;}
 function progress(){var tot=0,done=0;ST.boards.forEach(function(b){tot+=b.config.rows.length*b.config.answerCols.length;done+=Object.keys(ST.claims[b.id]||{}).length;});return {tot:tot,done:done};}
+function boardProgress(b){var tot=b.config.rows.length*b.config.answerCols.length,done=Object.keys(ST.claims[b.id]||{}).length;return {tot:tot,done:done,left:Math.max(0,tot-done)};}
+function progHTML(){
+  return ST.boards.map(function(b){var bp=boardProgress(b);var cur=(b.id===sel);
+    var txt=bp.left>0?(bp.left+'칸 남음'):'완료 ✓';
+    return '<span class="pg'+(cur?' cur':'')+(bp.left===0?' done':'')+'">'+esc(b.name)+' <b>'+txt+'</b></span>';}).join('');
+}
 
 // ---------- shared renderers ----------
 function renderTabs(elId,hostMode){var t=$(elId);if(!t)return;t.innerHTML='';
@@ -205,7 +217,7 @@ function turnHTML(forMe){var p=progress();
   var cur=curPlayer();
   if(forMe&&cur.id===myId)return {c:'mine',x:'🟢 내 차례! 빈칸을 누르세요 (남은 '+ST.turn.remaining+'칸)',bg:''};
   return {c:'',x:'지금 차례: '+cur.name+'  ·  남은 '+ST.turn.remaining+'칸',bg:cur.color};}
-function paintTurn(elId,progId,forMe){var o=turnHTML(forMe);var tb=$(elId);tb.className='turnbar '+o.c;tb.style.background=o.bg||'';tb.textContent=o.x;$(progId).textContent='전체 진행 '+progress().done+' / '+progress().tot+'칸';}
+function paintTurn(elId,progId,forMe){var o=turnHTML(forMe);var tb=$(elId);tb.className='turnbar '+o.c;tb.style.background=o.bg||'';tb.textContent=o.x;$(progId).innerHTML=progHTML();}
 function renderPlayers(elId,hostMode){var w=$(elId);if(!w)return;
   w.innerHTML=ST.players.map(function(p,i){var cls='pchip'+(i===ST.turn.curIdx&&ST.turn.started?' cur':'')+(p.id===myId?' me':'');
     var ctl=hostMode?('<span class="ord" onclick="event.stopPropagation();movePlayer('+i+',-1)">▲</span><span class="ord" onclick="event.stopPropagation();movePlayer('+i+',1)">▼</span><span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span>'):'';
@@ -326,7 +338,7 @@ function renderQR(){var url=location.origin;var L=$('linkline');if(L)L.textConte
 
 function render(){
   var cb=$('connbar'); if(cb){ cb.innerHTML= connErr ? '<div style="background:#fdeaea;border:1px solid #e0999955;color:#b13636;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;font-weight:700">⚠ 서버 연결 문제: '+esc(connErr)+' — 잠시 후 자동 재시도합니다. (방장 화면에서 표를 먼저 만들었는지, 새로고침도 확인)</div>' : ''; }
-  if(sel && !ST.boards.find(function(b){return b.id===sel;}))sel=ST.boards[0]?ST.boards[0].id:'';
+  if(ST.boards.length && !ST.boards.find(function(b){return b.id===sel;}))sel=ST.boards[0].id;
   $('nameGate').classList.toggle('hidden',!(role==='player'&&!myName));
   $('play').classList.toggle('hidden',!(role==='player'&&myName));
   $('host').classList.toggle('hidden',role!=='host');
