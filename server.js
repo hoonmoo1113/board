@@ -26,6 +26,16 @@ async function J(k,def){ try{const v=await getS(k); return v?JSON.parse(v):def;}
 const getBoards=()=>J('board:boards',[]), setBoards=b=>setS('board:boards',JSON.stringify(b));
 const getPlayers=()=>J('board:players',[]), setPlayers=p=>setS('board:players',JSON.stringify(p));
 const getTurn=()=>J('board:turn',NEW_TURN()), setTurn=t=>setS('board:turn',JSON.stringify(t));
+// 판별 진행 상태(turn)를 각 board 안에 보관 — 탭마다 독립적으로 시작/중단
+function bTurn(b){ if(!b.turn||typeof b.turn!=='object') b.turn=NEW_TURN(); 
+  if(typeof b.turn.curIdx!=='number')b.turn.curIdx=0;
+  if(typeof b.turn.remaining!=='number')b.turn.remaining=b.turn.picksPerTurn||1;
+  if(typeof b.turn.picksPerTurn!=='number')b.turn.picksPerTurn=1;
+  b.turn.started=!!b.turn.started; return b.turn; }
+async function migrateTurns(){ const boards=await getBoards(); if(!boards.length)return boards;
+  let changed=false; const g=await getTurn();
+  boards.forEach(function(b,i){ if(!b.turn){ b.turn = (i===0? {curIdx:g.curIdx||0,remaining:g.remaining||1,picksPerTurn:g.picksPerTurn||1,started:!!g.started} : NEW_TURN()); changed=true; } });
+  if(changed) await setBoards(boards); return boards; }
 async function getPin(){ return (await getS('board:admin_pin')) || ADMIN_PIN; }
 async function auth(req){ return !!(req.body) && req.body.pin===await getPin(); }
 
@@ -35,12 +45,14 @@ async function init(){
   await db.execute(`CREATE TABLE IF NOT EXISTS board_push_subs(player_id TEXT PRIMARY KEY, sub TEXT, ts INTEGER)`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_strikes(board_id TEXT, row_idx INTEGER, ts INTEGER, PRIMARY KEY(board_id,row_idx))`);
   await db.execute(`CREATE TABLE IF NOT EXISTS board_results(board_id TEXT PRIMARY KEY, kind TEXT, cell TEXT, ts INTEGER)`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS board_cell_strikes(board_id TEXT, cell TEXT, ts INTEGER, PRIMARY KEY(board_id,cell))`);
   let vapid = await J('board:vapid', null);
   if(!vapid || !vapid.publicKey){ vapid = webpush.generateVAPIDKeys(); await setS('board:vapid', JSON.stringify(vapid)); }
   VAPID_PUB = vapid.publicKey;
   try{ webpush.setVapidDetails('mailto:noreply@friends-board.app', vapid.publicKey, vapid.privateKey); }catch(e){ console.error('vapid',e); }
   if(!(await getBoards()).length) await setBoards([{ id:'b1', name:'경기 1', config: DEMO, themeIdx:0 }]);
   if(!(await getS('board:turn'))) await setTurn(NEW_TURN());
+  await migrateTurns();
   if(!(await getS('board:players'))) await setPlayers([]);
 }
 async function claimsMap(){ const r=await db.execute(`SELECT board_id,cell,player_id FROM board_claims_v2`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.cell]=x.player_id;}); return m; }
@@ -63,6 +75,21 @@ app.post('/api/result', async (req,res)=>{
   }catch(e){ res.status(500).json({error:String(e)}); }
 });
 
+async function cellStrikesMap(){ const r=await db.execute(`SELECT board_id,cell FROM board_cell_strikes`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.cell]=1;}); return m; }
+
+app.post('/api/strikecell', async (req,res)=>{
+  try{
+    const {boardId,cell}=req.body||{};
+    const boards=await getBoards(); const b=boards.find(x=>x.id===boardId);
+    if(!b) return res.status(404).json({error:'no_board'});
+    if(!validCell(cell,b.config)) return res.status(400).json({error:'bad_cell'});
+    const ex=await db.execute({sql:`SELECT 1 FROM board_cell_strikes WHERE board_id=? AND cell=?`,args:[boardId,cell]});
+    if(ex.rows.length) await db.execute({sql:`DELETE FROM board_cell_strikes WHERE board_id=? AND cell=?`,args:[boardId,cell]});
+    else await db.execute({sql:`INSERT INTO board_cell_strikes(board_id,cell,ts) VALUES(?,?,?)`,args:[boardId,cell,Date.now()]});
+    res.json({ok:true, struck: !ex.rows.length});
+  }catch(e){ res.status(500).json({error:String(e)}); }
+});
+
 async function strikesMap(){ const r=await db.execute(`SELECT board_id,row_idx FROM board_strikes`); const m={}; r.rows.forEach(x=>{(m[x.board_id]=m[x.board_id]||{})[x.row_idx]=1;}); return m; }
 
 app.post('/api/strike', async (req,res)=>{
@@ -78,9 +105,11 @@ app.post('/api/strike', async (req,res)=>{
   }catch(e){ res.status(500).json({error:String(e)}); }
 });
 
-async function notifyCurrent(){
+async function notifyCurrent(boardId){
   try{
-    const players=await getPlayers(), turn=await getTurn();
+    const players=await getPlayers(); const boards=await getBoards();
+    const b=boards.find(x=>x.id===boardId); if(!b) return;
+    const turn=bTurn(b);
     if(!turn.started || !players.length) return;
     const cur=players[turn.curIdx%players.length];
     const r=await db.execute({sql:`SELECT sub FROM board_push_subs WHERE player_id=?`,args:[cur.id]});
@@ -100,7 +129,7 @@ app.post('/api/subscribe', async (req,res)=>{
 });
 
 app.get('/api/state', async (req,res)=>{
-  try{ res.json({ boards:await getBoards(), players:await getPlayers(), turn:await getTurn(), claims:await claimsMap(), strikes:await strikesMap(), results:await resultsMap(), palette:PALETTE }); }
+  try{ const bds=await migrateTurns(); res.json({ boards:bds, players:await getPlayers(), turn:(bds[0]?bTurn(bds[0]):NEW_TURN()), claims:await claimsMap(), strikes:await strikesMap(), cellStrikes:await cellStrikesMap(), results:await resultsMap(), palette:PALETTE }); }
   catch(e){ res.status(500).json({error:String(e)}); }
 });
 
@@ -114,7 +143,9 @@ app.post('/api/join', async (req,res)=>{
     // (기기 변경·재설치로 식별정보가 사라진 경우에도 그대로 이어서 입장)
     const same=players.find(p=>p.name===nm);
     if(same) return res.json({ok:true,id:same.id,color:same.color,rejoined:true});
-    const turn=await getTurn(); if(turn.started) return res.status(403).json({error:'started',names:players.map(p=>p.name)});
+    const bds=await migrateTurns();
+    const allStarted = bds.length>0 && bds.every(b=>bTurn(b).started);
+    if(allStarted) return res.status(403).json({error:'started',names:players.map(p=>p.name)});
     const used=new Set(players.map(p=>p.color)); const color=PALETTE.find(c=>!used.has(c))||PALETTE[players.length%PALETTE.length];
     players.push({id:String(id),name:String(name).trim().slice(0,16),color}); await setPlayers(players);
     res.json({ok:true,id,color});
@@ -124,8 +155,9 @@ app.post('/api/join', async (req,res)=>{
 // 참가자가 자기 차례에만 자기 이름으로 채움 (순서 강제)
 app.post('/api/claim', async (req,res)=>{
   try{ const {boardId,cell,playerId}=req.body||{};
-    const boards=await getBoards(), players=await getPlayers(), turn=await getTurn();
+    const boards=await migrateTurns(), players=await getPlayers();
     const b=boards.find(x=>x.id===boardId); if(!b) return res.status(404).json({error:'no_board'});
+    const turn=bTurn(b);
     if(!turn.started) return res.status(409).json({error:'not_started'});
     if(!players.length) return res.status(409).json({error:'no_players'});
     const cur=players[turn.curIdx%players.length];
@@ -134,23 +166,29 @@ app.post('/api/claim', async (req,res)=>{
     const ex=await db.execute({sql:`SELECT 1 FROM board_claims_v2 WHERE board_id=? AND cell=?`,args:[boardId,cell]});
     if(ex.rows.length) return res.status(409).json({error:'taken'});
     await db.execute({sql:`INSERT INTO board_claims_v2(board_id,cell,player_id,ts) VALUES(?,?,?,?)`,args:[boardId,cell,cur.id,Date.now()]});
-    advance(turn,players); await setTurn(turn); notifyCurrent(); res.json({ok:true});
+    advance(turn,players); await setBoards(boards); notifyCurrent(boardId); res.json({ok:true});
   }catch(e){ res.status(500).json({error:String(e)}); }
 });
 
 // ----- 방장 전용 (PIN) -----
 app.post('/api/turn', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
-  const {action,patch}=req.body||{}; const players=await getPlayers(); let t=await getTurn();
+  const {action,patch,boardId}=req.body||{}; const players=await getPlayers(); const boards=await migrateTurns();
+  const b=boards.find(x=>x.id===boardId)||boards[0]; if(!b) return res.status(404).json({error:'no_board'});
+  let t=bTurn(b);
   if(action==='start'){ t.started=true; t.curIdx=0; t.remaining=t.picksPerTurn||1; }
   else if(action==='stop'){ t.started=false; }
   else if(action==='pass'){ if(players.length){ t.curIdx=(t.curIdx+1)%players.length; t.remaining=t.picksPerTurn||1; } }
   else if(patch){ if(patch.picksPerTurn!=null){ t.picksPerTurn=Math.max(1,+patch.picksPerTurn); t.remaining=t.picksPerTurn; } if(patch.remaining!=null)t.remaining=Math.max(1,+patch.remaining); if(patch.curIdx!=null&&players.length)t.curIdx=((+patch.curIdx)%players.length+players.length)%players.length; }
-  await setTurn(t); notifyCurrent(); res.json({ok:true,turn:t}); }catch(e){res.status(500).json({error:String(e)});}});
+  await setBoards(boards); notifyCurrent(b.id); res.json({ok:true,turn:t}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/undo', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
-  const players=await getPlayers(); const last=await db.execute(`SELECT board_id,cell,player_id FROM board_claims_v2 ORDER BY ts DESC LIMIT 1`);
+  const players=await getPlayers(); const bid=req.body?.boardId;
+  const last=bid? await db.execute({sql:`SELECT board_id,cell,player_id FROM board_claims_v2 WHERE board_id=? ORDER BY ts DESC LIMIT 1`,args:[bid]})
+                : await db.execute(`SELECT board_id,cell,player_id FROM board_claims_v2 ORDER BY ts DESC LIMIT 1`);
   if(!last.rows.length) return res.json({ok:true,empty:true}); const {board_id,cell,player_id}=last.rows[0];
   await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=? AND cell=?`,args:[board_id,cell]});
-  let t=await getTurn(); const i=players.findIndex(p=>p.id===player_id); if(i>=0){ t.curIdx=i; t.remaining=1; t.started=true; await setTurn(t); } res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
+  const boards=await migrateTurns(); const bb=boards.find(x=>x.id===board_id);
+  if(bb){ const t=bTurn(bb); const i=players.findIndex(p=>p.id===player_id); if(i>=0){ t.curIdx=i; t.remaining=1; t.started=true; await setBoards(boards); notifyCurrent(bb.id); } }
+  res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/unclaim', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
   const {boardId,cell}=req.body||{}; await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=? AND cell=?`,args:[boardId,cell]}); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/players', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
@@ -164,13 +202,13 @@ app.post('/api/board', async (req,res)=>{ try{ if(!await auth(req))return res.st
   const idx=boards.findIndex(x=>x.id===boardId); const b=boards[idx]; if(!b) return res.status(404).json({error:'no_board'});
   if(action==='rename') b.name=String(name||b.name).slice(0,24);
   else if(action==='config'){ if(!config||!Array.isArray(config.rows)||!Array.isArray(config.answerCols)) return res.status(400).json({error:'bad'}); b.config=config; }
-  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); }
+  else if(action==='clear'){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_cell_strikes WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_results WHERE board_id=?`,args:[boardId]}); }
   else if(action==='duplicate'){ const id='b'+Date.now(); boards.splice(idx+1,0,{id,name:String(name||(b.name+' 복사')).slice(0,24),config:JSON.parse(JSON.stringify(b.config)),themeIdx:boards.length%THEMES}); await setBoards(boards); return res.json({ok:true,id}); }
   else if(action==='move'){ const j=idx+(req.body.dir<0?-1:1); if(j<0||j>=boards.length) return res.json({ok:true}); const tmp=boards[idx]; boards[idx]=boards[j]; boards[j]=tmp; }
   else if(action==='delete'){ if(boards.length<=1) return res.status(400).json({error:'last'}); boards.splice(idx,1); await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=?`,args:[boardId]}); await db.execute({sql:`DELETE FROM board_strikes WHERE board_id=?`,args:[boardId]}); }
   await setBoards(boards); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/reset', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
-  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); await db.execute(`DELETE FROM board_results`); let t=await getTurn(); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; await setTurn(t);
+  await db.execute(`DELETE FROM board_claims_v2`); await db.execute(`DELETE FROM board_strikes`); await db.execute(`DELETE FROM board_cell_strikes`); await db.execute(`DELETE FROM board_results`); const bds=await migrateTurns(); bds.forEach(function(b){ const t=bTurn(b); t.started=false; t.curIdx=0; t.remaining=t.picksPerTurn||1; }); await setBoards(bds);
   if(req.body?.clearPlayers) await setPlayers([]); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/admin/check', async (req,res)=>res.json({ok:(req.body?.pin)===await getPin()}));
 app.post('/api/admin/pin', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'}); const np=String(req.body?.newPin||'').trim(); if(np.length<4||np.length>20)return res.status(400).json({error:'length'}); await setS('board:admin_pin',np); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
