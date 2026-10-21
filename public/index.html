@@ -59,7 +59,12 @@
   table.board td.ans .nm{font-weight:800;font-size:14px}
   table.board td.cstruck{filter:grayscale(1) opacity(.5);position:relative}
   table.board td.cstruck::after{content:'';position:absolute;left:4px;right:4px;top:50%;height:3px;background:#e11d48;box-shadow:0 0 0 1px #ffffffaa;transform:translateY(-50%);pointer-events:none}
-  table.board td.ans.smode{cursor:pointer;box-shadow:inset 0 0 0 2px #e11d4855}
+  table.board td.ans{position:relative}
+  .cellx{position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:1;border-radius:6px;border:1px solid var(--line);
+    background:#fff;color:#c7ccd8;font-size:12px;font-weight:900;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;z-index:2}
+  .cellx:hover{color:#e11d48;border-color:#e0999955;background:#fdeaea}
+  .cellx.on{color:#fff;background:#e11d48;border-color:#e11d48}
+  @media(max-width:520px){.cellx{width:18px;height:18px;font-size:11px}}
   .smodebar{background:#fdeaea;border:1px solid #e0999955;color:#b13636;border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:700;margin:8px 0;text-align:center}
   table.board td.win{outline:3px solid #E6A700;outline-offset:-3px;background:#FFF7DC !important;filter:none !important;position:relative}
   table.board td.win::before{content:'🏆';position:absolute;left:4px;top:2px;font-size:13px}
@@ -185,7 +190,7 @@ function hpin(){return localStorage.getItem('fb_pin')||'';}
 async function apiH(p,b){var r=await api(p,Object.assign({pin:hpin()},b||{}));if(r&&r.error==='pin'){localStorage.removeItem('fb_pin');alert('방장 비밀번호를 다시 입력해 주세요.');render();}return r;}
 
 var ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},strikes:{},cellStrikes:{},results:{}};
-var pickWinMode=false, strikeMode=false;
+var pickWinMode=false, strikeMode=false; // strikeMode: 더 이상 사용하지 않음(각 칸 ✕ 버튼으로 대체)
 var role=localStorage.getItem('fb_role')||'player';
 var myId=localStorage.getItem('fb_pid'); if(!myId){myId=(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('fb_pid',myId);}
 var myName=localStorage.getItem('fb_name')||'';
@@ -241,13 +246,14 @@ function renderBoardInto(elId,hintId,interactive){var b=board();var t=$(elId);t.
     else h+='<td class="lbl" colspan="2">'+esc(row.label)+(st?'<span class="xmark">✕</span>':'')+'</td>';
     for(var a=0;a<AC;a++){var cell=ri+'_'+a,owner=claims[cell];
       var isWin=(res&&res.kind==='win'&&res.cell===cell); var cst=!!csm[cell]; var cx=(cst?' cstruck':'')+(strikeMode?' smode':'');
-      if(owner){var pl=findPlayer(owner),col=pl?pl.color:'#888';h+='<td class="ans'+(isWin?' win':'')+cx+'" data-c="'+cell+'" style="background:'+tint(col)+';border-left:4px solid '+col+'"><span class="nm" style="color:'+col+'">'+(pl?esc(pl.name):'?')+'</span></td>';}
-      else h+='<td class="ans'+(canPick?' pick':'')+(isWin?' win':'')+cx+'" data-c="'+cell+'"></td>';}
+      if(owner){var pl=findPlayer(owner),col=pl?pl.color:'#888';h+='<td class="ans'+(isWin?' win':'')+cx+'" data-c="'+cell+'" style="background:'+tint(col)+';border-left:4px solid '+col+'"><button class="cellx'+(cst?' on':'')+'" data-x="'+cell+'" title="이 칸만 탈락 표시/해제">✕</button><span class="nm" style="color:'+col+'">'+(pl?esc(pl.name):'?')+'</span></td>';}
+      else h+='<td class="ans'+(canPick?' pick':'')+(isWin?' win':'')+cx+'" data-c="'+cell+'"><button class="cellx'+(cst?' on':'')+'" data-x="'+cell+'" title="이 칸만 탈락 표시/해제">✕</button></td>';}
     h+='<td class="strikebtn"><button class="sbtn'+(st?' on':'')+'" data-r="'+ri+'" title="결과 아님(탈락) 표시">✕</button></td>';
     h+='</tr>';});
   t.innerHTML=h;
   if(interactive||pickWinMode||strikeMode){var cells=t.querySelectorAll('td.ans');for(var k=0;k<cells.length;k++){(function(td){td.onclick=function(){onCellPlayer(td.getAttribute('data-c'));};})(cells[k]);}}
   var sbs=t.querySelectorAll('button.sbtn');for(var q=0;q<sbs.length;q++){(function(bt){bt.onclick=function(ev){ev.stopPropagation();toggleStrike(+bt.getAttribute('data-r'));};})(sbs[q]);}
+  var cxs=t.querySelectorAll('button.cellx');for(var z=0;z<cxs.length;z++){(function(bt){bt.onclick=function(ev){ev.stopPropagation();toggleCellStrike(bt.getAttribute('data-x'));};})(cxs[z]);}
   if(hintId)$(hintId).textContent=canPick?'지금 내 차례! 빈칸을 누르면 내 이름으로 채워집니다.':(interactive?'다른 사람 차례입니다. 잠시 기다려 주세요.':'');}
 
 // ---------- player ----------
@@ -266,7 +272,6 @@ function winnerName(bid){var r=(ST.results||{})[bid]; if(!r||r.kind!=='win')retu
 function renderResult(boxId){
   var box=$(boxId||'resultBox'); if(!box) return; var b=board(); if(!b){box.innerHTML='';return;}
   var r=(ST.results||{})[b.id]; var html='';
-  if(strikeMode) html+='<div class="smodebar">✕ <b>개별 탈락 모드</b> — 칸을 눌러 그 칸만 탈락 표시/해제 &nbsp;<button class="btn ghost small" onclick="toggleStrikeMode()">끝내기</button></div>';
   if(pickWinMode) html+='<div class="pickmode">🏆 실제 결과가 나온 칸(이름이 적힌 칸)을 눌러 주세요 &nbsp;<button class="btn ghost small" onclick="cancelPickWin()">취소</button></div>';
   if(r){
     if(r.kind==='win'){ var nm=winnerName(b.id); html+='<div class="resultbar win">🏆 이번 판 승자 — '+esc(nm||'(이름 없음)')+'</div>'; }
@@ -276,7 +281,6 @@ function renderResult(boxId){
   html+='<div class="row2" style="justify-content:center;margin:6px 0 2px">'+
     (r?'<button class="btn ghost small" onclick="setResult(\'none\')">결과 지우기</button>':
         '<button class="btn small" onclick="startPickWin()">🏆 결과 칸 지정</button><button class="btn ghost small" onclick="setResult(\'draw\')">🤝 무승부</button><button class="btn ghost small" onclick="setResult(\'cancel\')">🚫 경기 취소</button>')+
-    '<button class="btn '+(strikeMode?'danger':'ghost')+' small" onclick="toggleStrikeMode()">'+(strikeMode?'✕ 개별 탈락 끝내기':'✕ 개별 칸 탈락')+'</button>'+
     '</div>';
   // overall tally across boards
   var tally={},any=false;
@@ -291,6 +295,7 @@ function toggleStrikeMode(){ strikeMode=!strikeMode; if(strikeMode)pickWinMode=f
 function startPickWin(){ pickWinMode=true; strikeMode=false; render(); }
 function cancelPickWin(){ pickWinMode=false; render(); }
 async function setResult(kind){ var b=board(); if(!b)return; if(kind==='none'&&!confirm('이 판의 결과 표시를 지울까요?'))return; await api('/api/result',{boardId:b.id,kind:kind}); pickWinMode=false; poll(); }
+async function toggleCellStrike(cell){ var b=board(); if(!b)return; await api('/api/strikecell',{boardId:b.id,cell:cell}); poll(); }
 async function toggleStrike(row){ var b=board(); if(!b)return; await api('/api/strike',{boardId:b.id,row:row}); poll(); }
 async function onCellPlayer(cell){
   if(strikeMode&&!pickWinMode){ var bs=board(); await api('/api/strikecell',{boardId:bs.id,cell:cell}); poll(); return; }
@@ -366,7 +371,7 @@ function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',fa
   var sb=$('stopBtn'); if(sb){ sb.disabled=!_t.started; sb.textContent=_t.started?'⏸ 이 판 중단':'⏸ 중단됨'; }
   if(document.activeElement!==$('ppt'))$('ppt').value=_t.picksPerTurn||1; renderTbar(); renderQR(); }
 
-Object.assign(window,{toggleStrikeMode:toggleStrikeMode,stopGame:stopGame,startPickWin:startPickWin,cancelPickWin:cancelPickWin,setResult:setResult,toggleStrike:toggleStrike,enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
+Object.assign(window,{toggleCellStrike:toggleCellStrike,toggleStrikeMode:toggleStrikeMode,stopGame:stopGame,startPickWin:startPickWin,cancelPickWin:cancelPickWin,setResult:setResult,toggleStrike:toggleStrike,enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
 
 var notifyOn=false, pushOn=false, wasMyTurn=false, lastTurnKey='';
