@@ -191,6 +191,21 @@ app.post('/api/undo', async (req,res)=>{ try{ if(!await auth(req))return res.sta
   res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/unclaim', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
   const {boardId,cell}=req.body||{}; await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=? AND cell=?`,args:[boardId,cell]}); res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
+// 방장이 임의로 칸을 채우기/바꾸기/비우기 (차례와 무관, 이미 채워진 칸도 덮어씀). playerId가 비어 있으면 칸을 비움.
+app.post('/api/hostclaim', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
+  const {boardId,cell,playerId}=req.body||{};
+  const boards=await getBoards(); const b=boards.find(x=>x.id===boardId); if(!b) return res.status(404).json({error:'no_board'});
+  if(!validCell(cell,b.config)) return res.status(400).json({error:'bad_cell'});
+  if(!playerId){ await db.execute({sql:`DELETE FROM board_claims_v2 WHERE board_id=? AND cell=?`,args:[boardId,cell]}); return res.json({ok:true,cleared:true}); }
+  const players=await getPlayers(); if(!players.find(p=>p.id===playerId)) return res.status(400).json({error:'bad_player'});
+  await db.execute({sql:`INSERT INTO board_claims_v2(board_id,cell,player_id,ts) VALUES(?,?,?,?) ON CONFLICT(board_id,cell) DO UPDATE SET player_id=excluded.player_id,ts=excluded.ts`,args:[boardId,cell,String(playerId),Date.now()]});
+  res.json({ok:true}); }catch(e){res.status(500).json({error:String(e)});}});
+// 삭제된 참가자(fromId)가 채웠던 모든 칸을 다른 참가자(toId)로 한꺼번에 옮김
+app.post('/api/reassign', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
+  const {fromId,toId}=req.body||{}; if(!fromId||!toId||fromId===toId) return res.status(400).json({error:'bad'});
+  const players=await getPlayers(); if(!players.find(p=>p.id===toId)) return res.status(400).json({error:'bad_player'});
+  const r=await db.execute({sql:`UPDATE board_claims_v2 SET player_id=? WHERE player_id=?`,args:[String(toId),String(fromId)]});
+  res.json({ok:true,moved:r.rowsAffected}); }catch(e){res.status(500).json({error:String(e)});}});
 app.post('/api/players', async (req,res)=>{ try{ if(!await auth(req))return res.status(403).json({error:'pin'});
   const p=req.body?.players; if(!Array.isArray(p)) return res.status(400).json({error:'bad'});
   const used=new Set(); p.forEach((pl,i)=>{ if(!pl.id)pl.id='p-'+Date.now()+'-'+i; if(!pl.color){pl.color=PALETTE.find(c=>!used.has(c))||PALETTE[i%PALETTE.length];} used.add(pl.color); pl.name=String(pl.name||('P'+(i+1))).slice(0,16); });

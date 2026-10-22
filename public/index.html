@@ -94,6 +94,27 @@
   .pchip{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:8px 13px}
   .pchip.cur{border-color:var(--violet);box-shadow:0 0 0 2px #5b45e022;background:#f3f0ff}.pchip.me{outline:2px solid #1E9E52}
   .pchip .dot{width:12px;height:12px;border-radius:50%}.pchip .ord{color:var(--muted);font-weight:900;margin-left:2px;font-size:12px;padding:0 2px;cursor:pointer}.pchip .x{color:#c0392b;font-weight:900;margin-left:4px;cursor:pointer}
+  /* 방장 참가자 목록: 순서 버튼(▲▼)은 크게, 삭제는 오른쪽 끝에 멀리 분리 */
+  .players.host{flex-direction:column}
+  .players.host .pchip{width:100%;border-radius:14px;padding:8px 10px;gap:8px}
+  .pchip .pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pchip .mvgrp{display:flex;gap:8px}
+  .pchip .mv{width:44px;height:40px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:900;color:var(--ink);cursor:pointer;padding:0}
+  .pchip .mv:active{background:#e8e6ff}.pchip .mv:disabled{opacity:.3}
+  .pchip .delgrp{margin-left:26px;padding-left:14px;border-left:2px dashed #e0999977}
+  .pchip .pdel{height:32px;padding:0 10px;border-radius:8px;border:1px solid #e0999966;background:#fff;color:#c0392b;font-size:12px;font-weight:800;cursor:pointer}
+  .hostfillbar{background:#eef4ff;border:1px solid #c9d6f5;color:#2b3a67;border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:700;margin:8px 0;text-align:center;line-height:1.5}
+  table.board td.ans.fillable{cursor:pointer;outline:2px dashed #5B45E066;outline-offset:-3px}
+  table.board td.ans.fillable .cellx{display:none}
+  .orphanbox{background:#fff7dc;border:1px solid #E6A70066;border-radius:12px;padding:12px;margin-bottom:12px;font-size:13.5px;font-weight:700;color:#7a5a00}
+  .orphanbox .orow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .orphanbox select{padding:8px;border-radius:8px;border:1px solid var(--line);font-size:14px;font-weight:700;background:#fff}
+  .pickmask{position:fixed;inset:0;background:#0007;z-index:100;display:flex;align-items:flex-end;justify-content:center}
+  .picksheet{background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
+  .picksheet h3{margin:0 0 4px;font-size:16px}.picksheet .sub{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+  .picksheet .popt{display:flex;align-items:center;gap:10px;width:100%;padding:13px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:16px;font-weight:800;cursor:pointer;text-align:left}
+  .picksheet .popt .dot{width:14px;height:14px;border-radius:50%}
+  .picksheet .popt.cur{border-color:#5B45E0;background:#f3f0ff}
   .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .ti{width:100%;background:var(--soft);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 12px;font-size:15px;font-weight:600}
   .num{width:60px;text-align:center}
@@ -152,6 +173,7 @@
       <div class="row2" style="justify-content:flex-end;margin-bottom:8px"><button class="btn ghost small" id="editToggle" onclick="toggleEdit()">✏️ 표 수정하기</button><button class="btn ghost small" onclick="renameBoard()">✎ 이름</button><button class="btn ghost small" onclick="deleteBoard()">🗑 삭제</button><button class="btn ghost small" onclick="exitHost()">친구 화면</button></div>
       <div class="tabs" id="tabsH"></div>
       <div class="tbar" id="tbar"></div>
+      <div class="row2" style="margin-bottom:6px"><button class="btn ghost small" id="fillBtn" onclick="toggleHostFill()">🖊 방장 칸 채우기</button></div><div id="fillBar"></div>
       <div class="tablewrap"><table class="board" id="boardH"></table></div>
       <p class="hint" id="tableHintH"></p>
       <div id="resultBoxH"></div>
@@ -164,7 +186,8 @@
         <span class="note" style="margin:0">한 번에</span><input class="ti num" id="ppt" type="number" min="1" value="1" onchange="setPPT()"><span class="note" style="margin:0">칸씩</span>
         <button class="btn ghost small" onclick="clearBoard()" style="margin-left:auto">이 판 비우기</button>
       </div></div>
-      <div class="card"><h2 class="sec">참가자 <span class="note" style="font-weight:500">· 친구들이 접속하면 여기에 나타납니다 · ▲▼ 순서 · ✕ 삭제</span></h2>
+      <div id="orphanBox"></div>
+      <div class="card"><h2 class="sec">참가자 <span class="note" style="font-weight:500">· 친구들이 접속하면 여기에 나타납니다 · ▲▼ 순서 변경 · 삭제는 오른쪽 끝(확인창이 뜹니다)</span></h2>
         <div class="players" id="playersH"></div>
         <div class="row2" style="margin-top:10px"><input class="ti" id="addP" maxlength="16" placeholder="직접 참가자 추가(선택)"><button class="btn ghost small" onclick="hostAddPlayer()">추가</button></div></div>
       <details><summary>📱 친구 접속 QR/링크 · 비밀번호 · 초기화</summary><div class="dbody">
@@ -190,7 +213,7 @@ function hpin(){return localStorage.getItem('fb_pin')||'';}
 async function apiH(p,b){var r=await api(p,Object.assign({pin:hpin()},b||{}));if(r&&r.error==='pin'){localStorage.removeItem('fb_pin');alert('방장 비밀번호를 다시 입력해 주세요.');render();}return r;}
 
 var ST={boards:[],players:[],turn:{curIdx:0,remaining:1,picksPerTurn:1,started:false},claims:{},strikes:{},cellStrikes:{},results:{}};
-var pickWinMode=false, strikeMode=false; // strikeMode: 더 이상 사용하지 않음(각 칸 ✕ 버튼으로 대체)
+var pickWinMode=false, strikeMode=false, hostFillMode=false; // strikeMode: 더 이상 사용하지 않음(각 칸 ✕ 버튼으로 대체)
 var role=localStorage.getItem('fb_role')||'player';
 var myId=localStorage.getItem('fb_pid'); if(!myId){myId=(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('fb_pid',myId);}
 var myName=localStorage.getItem('fb_name')||'';
@@ -232,9 +255,10 @@ function turnHTML(forMe){var p=progress();
   return {c:'',x:'지금 차례: '+cur.name+'  ·  남은 '+bturn().remaining+'칸',bg:cur.color};}
 function paintTurn(elId,progId,forMe){var o=turnHTML(forMe);var tb=$(elId);tb.className='turnbar '+o.c;tb.style.background=o.bg||'';tb.textContent=o.x;$(progId).innerHTML=progHTML();}
 function renderPlayers(elId,hostMode){var w=$(elId);if(!w)return;
+  w.className='players'+(hostMode?' host':'');
   w.innerHTML=ST.players.map(function(p,i){var _t=bturn(); var cls='pchip'+(i===_t.curIdx&&_t.started?' cur':'')+(p.id===myId?' me':'');
-    var ctl=hostMode?('<span class="ord" onclick="event.stopPropagation();movePlayer('+i+',-1)">▲</span><span class="ord" onclick="event.stopPropagation();movePlayer('+i+',1)">▼</span><span class="x" onclick="event.stopPropagation();removePlayer('+i+')">✕</span>'):'';
-    return '<span class="'+cls+'"><span class="dot" style="background:'+p.color+'"></span>'+(i+1)+'. '+esc(p.name)+(p.id===myId?' <b style="color:#1E9E52">(나)</b>':'')+ctl+'</span>';}).join('')||'<span class="note">아직 참가자가 없습니다.'+(hostMode?' 친구가 접속하거나 직접 추가하세요.':' 참여하면 여기에 표시됩니다.')+'</span>';}
+    var ctl=hostMode?('<span class="mvgrp"><button class="mv" '+(i===0?'disabled ':'')+'onclick="event.stopPropagation();movePlayer('+i+',-1)" aria-label="위로">▲</button><button class="mv" '+(i===ST.players.length-1?'disabled ':'')+'onclick="event.stopPropagation();movePlayer('+i+',1)" aria-label="아래로">▼</button></span><span class="delgrp"><button class="pdel" onclick="event.stopPropagation();removePlayer('+i+')">삭제</button></span>'):'';
+    return '<span class="'+cls+'"><span class="dot" style="background:'+p.color+'"></span><span class="pname">'+(i+1)+'. '+esc(p.name)+(p.id===myId?' <b style="color:#1E9E52">(나)</b>':'')+'</span>'+ctl+'</span>';}).join('')||'<span class="note">아직 참가자가 없습니다.'+(hostMode?' 친구가 접속하거나 직접 추가하세요.':' 참여하면 여기에 표시됩니다.')+'</span>';}
 function renderBoardInto(elId,hintId,interactive){var b=board();var t=$(elId);t.className='board';if(!b){t.innerHTML='';return;}var th=theme(b);t.style.setProperty('--tt',th.t);t.style.setProperty('--th',th.h);t.style.setProperty('--te',th.e);if(t.parentElement)t.parentElement.style.borderColor=th.e;
   var c=b.config,AC=c.answerCols.length,total=2+AC+1,claims=ST.claims[b.id]||{};var canPick=interactive&&meIsCurrent();
   var h='';(c.title||[]).forEach(function(l){h+='<tr><td class="title" colspan="'+total+'">'+esc(l)+'</td></tr>';});
@@ -251,7 +275,8 @@ function renderBoardInto(elId,hintId,interactive){var b=board();var t=$(elId);t.
     h+='<td class="strikebtn"><button class="sbtn'+(st?' on':'')+'" data-r="'+ri+'" title="결과 아님(탈락) 표시">✕</button></td>';
     h+='</tr>';});
   t.innerHTML=h;
-  if(interactive||pickWinMode||strikeMode){var cells=t.querySelectorAll('td.ans');for(var k=0;k<cells.length;k++){(function(td){td.onclick=function(){onCellPlayer(td.getAttribute('data-c'));};})(cells[k]);}}
+  if(hostFillMode&&!interactive&&!pickWinMode){var fc=t.querySelectorAll('td.ans');for(var fi=0;fi<fc.length;fi++)fc[fi].classList.add('fillable');}
+  if(interactive||pickWinMode||strikeMode||(hostFillMode&&!interactive)){var cells=t.querySelectorAll('td.ans');for(var k=0;k<cells.length;k++){(function(td){td.onclick=function(){onCellPlayer(td.getAttribute('data-c'));};})(cells[k]);}}
   var sbs=t.querySelectorAll('button.sbtn');for(var q=0;q<sbs.length;q++){(function(bt){bt.onclick=function(ev){ev.stopPropagation();toggleStrike(+bt.getAttribute('data-r'));};})(sbs[q]);}
   var cxs=t.querySelectorAll('button.cellx');for(var z=0;z<cxs.length;z++){(function(bt){bt.onclick=function(ev){ev.stopPropagation();toggleCellStrike(bt.getAttribute('data-x'));};})(cxs[z]);}
   if(hintId)$(hintId).textContent=canPick?'지금 내 차례! 빈칸을 누르면 내 이름으로 채워집니다.':(interactive?'다른 사람 차례입니다. 잠시 기다려 주세요.':'');}
@@ -292,12 +317,13 @@ function renderResult(boxId){
   box.innerHTML=html;
 }
 function toggleStrikeMode(){ strikeMode=!strikeMode; if(strikeMode)pickWinMode=false; render(); }
-function startPickWin(){ pickWinMode=true; strikeMode=false; render(); }
+function startPickWin(){ pickWinMode=true; strikeMode=false; hostFillMode=false; render(); }
 function cancelPickWin(){ pickWinMode=false; render(); }
 async function setResult(kind){ var b=board(); if(!b)return; if(kind==='none'&&!confirm('이 판의 결과 표시를 지울까요?'))return; await api('/api/result',{boardId:b.id,kind:kind}); pickWinMode=false; poll(); }
 async function toggleCellStrike(cell){ var b=board(); if(!b)return; await api('/api/strikecell',{boardId:b.id,cell:cell}); poll(); }
 async function toggleStrike(row){ var b=board(); if(!b)return; await api('/api/strike',{boardId:b.id,row:row}); poll(); }
 async function onCellPlayer(cell){
+  if(hostFillMode&&role==='host'&&!pickWinMode){ openFillPicker(cell); return; }
   if(strikeMode&&!pickWinMode){ var bs=board(); await api('/api/strikecell',{boardId:bs.id,cell:cell}); poll(); return; }
   if(pickWinMode){ var bb=board(); var owner=((ST.claims[bb.id]||{})[cell]); if(!owner){ alert('이름이 적힌 칸을 골라 주세요.'); return; }
     await api('/api/result',{boardId:bb.id,kind:'win',cell:cell}); pickWinMode=false; poll(); return; }if(!meIsCurrent()){alert('아직 당신 차례가 아닙니다.');return;}
@@ -337,7 +363,40 @@ async function undo(){var b=board(); if(!b)return; await apiH('/api/undo',{board
 async function clearBoard(){if(!confirm('이 판의 채운 칸을 모두 지울까요?'))return;await apiH('/api/board',{action:'clear',boardId:board().id});poll();}
 async function resetAll(){if(!confirm('모든 판의 채운 칸을 초기화할까요?'))return;await apiH('/api/reset',{});poll();}
 async function movePlayer(i,d){var pl=ST.players.slice();var j=i+d;if(j<0||j>=pl.length)return;var tmp=pl[i];pl[i]=pl[j];pl[j]=tmp;await apiH('/api/players',{players:pl});poll();}
-async function removePlayer(i){var pl=ST.players.slice();pl.splice(i,1);await apiH('/api/players',{players:pl});poll();}
+async function removePlayer(i){var p=ST.players[i]; if(!p)return;
+  var n=0; ST.boards.forEach(function(b){var c=ST.claims[b.id]||{}; Object.keys(c).forEach(function(k){if(c[k]===p.id)n++;});});
+  var msg='⚠ 「'+p.name+'」 님을 참가자에서 삭제할까요?'+(n?'\n\n이 참가자가 채운 '+n+'칸이 "?"로 바뀝니다.\n(삭제 후에도 아래 「삭제된 참가자 칸 복구」에서 다른 참가자에게 다시 배정할 수 있어요)':'');
+  if(!confirm(msg))return;
+  var pl=ST.players.slice();pl.splice(i,1);await apiH('/api/players',{players:pl});poll();}
+function toggleHostFill(){ hostFillMode=!hostFillMode; if(hostFillMode)pickWinMode=false; render(); }
+function closePicker(){ var m=$('pickMask'); if(m)m.remove(); }
+function openFillPicker(cell){ var b=board(); if(!b)return; closePicker();
+  var m=/^(\d+)_(\d+)$/.exec(cell); if(!m)return; var row=b.config.rows[+m[1]], col=b.config.answerCols[+m[2]]; if(!row)return;
+  var owner=(ST.claims[b.id]||{})[cell]; var op=findPlayer(owner);
+  var h='<div class="picksheet"><h3>칸 채우기</h3><div class="sub">'+esc((row.group?row.group+' · ':'')+row.label)+' / '+esc(col||'')+(owner?' — 현재: '+(op?esc(op.name):'삭제된 참가자(?)'):' — 현재: 빈칸')+'</div>';
+  ST.players.forEach(function(p){ h+='<button class="popt'+(p.id===owner?' cur':'')+'" data-pid="'+esc(p.id)+'"><span class="dot" style="background:'+p.color+'"></span>'+esc(p.name)+(p.id===owner?' ✓':'')+'</button>'; });
+  if(!ST.players.length) h+='<div class="note">먼저 아래 「참가자」에서 친구를 추가하세요.</div>';
+  if(owner) h+='<button class="popt" data-pid="" style="color:#c0392b">🧹 이 칸 비우기</button>';
+  h+='<button class="popt" data-cancel="1" style="justify-content:center;color:var(--muted)">취소</button></div>';
+  var mask=document.createElement('div'); mask.className='pickmask'; mask.id='pickMask'; mask.innerHTML=h;
+  mask.onclick=function(ev){ if(ev.target===mask)closePicker(); };
+  document.body.appendChild(mask);
+  var bs=mask.querySelectorAll('button.popt'); for(var i=0;i<bs.length;i++){(function(bt){ bt.onclick=async function(){
+    if(bt.getAttribute('data-cancel')){closePicker();return;}
+    var pid=bt.getAttribute('data-pid'); closePicker();
+    var r=await apiH('/api/hostclaim',{boardId:b.id,cell:cell,playerId:pid}); if(r&&r.error&&r.error!=='pin')alert('저장 실패: '+r.error); poll(); }; })(bs[i]); } }
+function orphanGroups(){ var m={}; ST.boards.forEach(function(b){var c=ST.claims[b.id]||{}; Object.keys(c).forEach(function(k){var id=c[k]; if(!findPlayer(id))m[id]=(m[id]||0)+1;});}); return m; }
+function renderOrphans(){ var box=$('orphanBox'); if(!box)return; var g=orphanGroups(), ids=Object.keys(g);
+  if(!ids.length){ box.innerHTML=''; box.dataset.sig=''; return; }
+  var sig=JSON.stringify([g,ST.players.map(function(p){return p.id+p.name;})]); if(box.dataset.sig===sig) return; box.dataset.sig=sig; // 변화 없으면 다시 그리지 않음(선택 유지)
+  var total=0; ids.forEach(function(id){total+=g[id];});
+  var opts=ST.players.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';}).join('');
+  var h='<div class="orphanbox">⚠ 삭제된 참가자의 칸이 <b>'+total+'칸</b> 남아 있습니다 (표에 <b>?</b>로 표시).<br><span style="font-weight:500;font-size:12.5px">친구를 다시 추가한 뒤, 아래에서 그 사람에게 한꺼번에 배정하세요. 칸 하나씩은 「🖊 방장 칸 채우기」로 바꿀 수 있어요.</span>';
+  ids.forEach(function(id,k){ h+='<div class="orow"><span>삭제된 참가자 '+(k+1)+' · '+g[id]+'칸 →</span>'+(ST.players.length?('<select id="orph'+k+'" data-from="'+esc(id)+'">'+opts+'</select><button class="btn small" onclick="reassignOrphan('+k+')">이 사람으로 배정</button>'):'<span class="note" style="margin:0">먼저 참가자를 추가하세요</span>')+'</div>'; });
+  box.innerHTML=h+'</div>'; }
+async function reassignOrphan(k){ var sl=$('orph'+k); if(!sl)return; var from=sl.getAttribute('data-from'), to=sl.value; var p=findPlayer(to); if(!p)return;
+  if(!confirm('삭제된 참가자의 칸을 모두 「'+p.name+'」 님으로 배정할까요?'))return;
+  var r=await apiH('/api/reassign',{fromId:from,toId:to}); if(r&&r.error&&r.error!=='pin')alert('실패: '+r.error); poll(); }
 async function hostAddPlayer(){var v=($('addP').value||'').trim();if(!v)return;var pl=ST.players.slice();pl.push({name:v.slice(0,16)});$('addP').value='';await apiH('/api/players',{players:pl});poll();}
 async function addBoard(){var n=prompt('새 게임판 이름','경기 '+(ST.boards.length+1));if(n===null)return;var r=await apiH('/api/board',{action:'add',name:n||('경기 '+(ST.boards.length+1))});if(r&&r.id){sel=r.id;localStorage.setItem('fb_sel',sel);editing=false;}await poll();toggleEdit();}
 async function duplicateBoard(){var b=board();var n=prompt('복제한 판의 이름','('+b.name+') 복사');if(n===null)return;var r=await apiH('/api/board',{action:'duplicate',boardId:b.id,name:n||(b.name+' 복사')});if(r&&r.id){sel=r.id;localStorage.setItem('fb_sel',sel);editing=false;}await poll();toggleEdit();}
@@ -364,14 +423,16 @@ function render(){
   else if(role==='host'){ enterHost(); }
   checkTurnAlert();
 }
-function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true); renderResult('resultBoxH');
+function renderHost(){ renderTabs('tabsH',true); paintTurn('turnbarH','progH',false); renderPlayers('playersH',true); renderOrphans(); renderResult('resultBoxH');
+  var fb=$('fillBtn'); if(fb){ fb.textContent=hostFillMode?'✅ 칸 채우기 끝내기':'🖊 방장 칸 채우기'; fb.className='btn small '+(hostFillMode?'green':'ghost'); }
+  var fbar=$('fillBar'); if(fbar) fbar.innerHTML=hostFillMode?'<div class="hostfillbar">🖊 <b>방장 칸 채우기 모드</b> — 표의 칸을 누르면 참가자를 골라 채우거나(차례와 상관없이, 이미 채운 칸도 변경) 비울 수 있어요.</div>':'';
   if(editing){ if(!$('boardH').dataset.edit){ renderEdit(); $('boardH').dataset.edit='1'; } } else { $('boardH').dataset.edit=''; renderBoardInto('boardH','tableHintH',false); }
   var b=board(); var _t=bturn(); var _bn=b?b.name:'';
   $('startBtn').textContent=_t.started?('▶ 「'+_bn+'」 다시 시작'):('▶ 「'+_bn+'」 시작');
   var sb=$('stopBtn'); if(sb){ sb.disabled=!_t.started; sb.textContent=_t.started?'⏸ 이 판 중단':'⏸ 중단됨'; }
   if(document.activeElement!==$('ppt'))$('ppt').value=_t.picksPerTurn||1; renderTbar(); renderQR(); }
 
-Object.assign(window,{toggleCellStrike:toggleCellStrike,toggleStrikeMode:toggleStrikeMode,stopGame:stopGame,startPickWin:startPickWin,cancelPickWin:cancelPickWin,setResult:setResult,toggleStrike:toggleStrike,enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
+Object.assign(window,{toggleHostFill:toggleHostFill,reassignOrphan:reassignOrphan,toggleCellStrike:toggleCellStrike,toggleStrikeMode:toggleStrikeMode,stopGame:stopGame,startPickWin:startPickWin,cancelPickWin:cancelPickWin,setResult:setResult,toggleStrike:toggleStrike,enableNotify:enableNotify,join:join,changeName:changeName,goHost:goHost,exitHost:exitHost,checkPin:checkPin,changePin:changePin,toggleEdit:toggleEdit,cancelEdit:cancelEdit,saveEdit:saveEdit,dTitle:dTitle,dAddTitle:dAddTitle,dDelTitle:dDelTitle,dHead:dHead,dCol:dCol,dAddCol:dAddCol,dDelCol:dDelCol,dGroup:dGroup,dLabel:dLabel,dAddRow:dAddRow,dDelRow:dDelRow,startGame:startGame,passTurn:passTurn,setPPT:setPPT,setCur:setCur,undo:undo,clearBoard:clearBoard,resetAll:resetAll,movePlayer:movePlayer,removePlayer:removePlayer,hostAddPlayer:hostAddPlayer,addBoard:addBoard,duplicateBoard:duplicateBoard,moveBoard:moveBoard,renameBoard:renameBoard,deleteBoard:deleteBoard,onCellPlayer:onCellPlayer});
 
 
 var notifyOn=false, pushOn=false, wasMyTurn=false, lastTurnKey='';
